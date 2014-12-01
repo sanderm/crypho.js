@@ -8,6 +8,12 @@
   "moduleType": [
     "amd"
   ],
+  "dependencies": {
+    "strophe": "1.1.1",
+    "strophe.plugins": "1.0.0",
+    "burry": "1.0.1",
+    "Backbone.xmpp": "1.0.0"
+  },
   "license": "Private",
   "private": true,
   "ignore": [
