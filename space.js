@@ -61,11 +61,12 @@ define([
 
         fetch: function () {
             var self = this,
-                p = XMPP.connection.Crypho.getSpace(this.id),
-                ip = this.infostream.fetchProgressive(),
-                fp = this.filestream.fetch();
+                p = XMPP.connection.Crypho.getSpace(this.id);
+
             p.done(function (json) {
-                self.parse(json);
+                self.set(self.parse(json));
+                self.infostream.fetchProgressive();
+                self.filestream.fetch();
             });
             return p;
         },
