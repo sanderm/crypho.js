@@ -81,7 +81,6 @@ define([
         fetchProgressive: function () {
             var rsm = {max: CryptoNode.maxFetchItems},
                 self = this, p;
-
             if (this._rsm) {
                 // If we have reached the end of the node, _rsm.last is ''.
                 // In that case resolve the promise with an empty list.
@@ -101,6 +100,8 @@ define([
             p = this.fetch({rsm: rsm, merge: true, add: true, remove: false});
             p.done(function (items, rsm) {
                 self._rsm = rsm;
+            });
+            p.always(function (r) {
                 delete self._isFetching;
             });
             return p;
