@@ -4,7 +4,7 @@ define([
     'backbone',
     'globals',
     './husher',
-    'XMPP',
+    './XMPP',
     './infostream',
     './filestream',
     './user'

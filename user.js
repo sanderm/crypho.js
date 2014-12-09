@@ -3,7 +3,7 @@ define([
     'underscore',
     'backbone',
     'strophe',
-    'XMPP',
+    './XMPP',
     'burry',
     'globals',
     ], function ($, _, Backbone, Strophe, XMPP, Burry, globals) {
