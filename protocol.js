@@ -3,7 +3,7 @@ define([
     'underscore',
     'backbone',
     'strophe',
-    'husher',
+    './husher',
     'globals'
     ], function ($, _, Backbone, Strophe, husher, globals) {
 
