@@ -3,12 +3,11 @@ define([
     'underscore',
     'backbone',
     'globals',
-    'cryptonode',
+    './cryptonode',
 ], function ($, _, Backbone, globals, CryptoNode) {
 
 
     var InfoStream = {};
-    var _NEW_POST_INTERVAL = 60*1000;
 
     InfoStream.InfoStreamItem = CryptoNode.CryptoItem.extend({
 
