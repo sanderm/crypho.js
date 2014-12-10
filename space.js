@@ -3,16 +3,15 @@ define([
     'underscore',
     'backbone',
     'globals',
-    'husher',
+    './husher',
     'XMPP',
-    'infostream',
-    'filestream',
-    'user'
+    './infostream',
+    './filestream',
+    './user'
 ], function ($, _, Backbone, globals, husher, XMPP, InfoStream, FileStream, User) {
 
     var Space = {};
 
-        // Space
     Space.Space = Backbone.Model.extend({
 
         urlRoot: '/spaces',

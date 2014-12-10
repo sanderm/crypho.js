@@ -4,7 +4,7 @@ define([
     'backbone',
     'base',
     'globals',
-    'cryptonode',
+    './cryptonode',
 ], function ($, _, Backbone, base, globals, CryptoNode) {
 
     var FileStream = {};

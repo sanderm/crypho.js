@@ -1,4 +1,4 @@
-define(['sjcl', 'underscore' , 'backbone', 'jquery', 'sweatshop'], function (sjcl, _, Backbone, $, Sweatshop) {
+define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (sjcl, _, Backbone, $, Sweatshop) {
 
     var husher = {
 
