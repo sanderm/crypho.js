@@ -4,7 +4,7 @@ define([
     'backbone',
     'globals',
     './husher',
-    './XMPP',
+    'XMPP',
     './infostream',
     './filestream',
     './user'
@@ -12,7 +12,6 @@ define([
 
     var Space = {};
 
-        // Space
     Space.Space = Backbone.Model.extend({
 
         urlRoot: '/spaces',
