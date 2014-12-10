@@ -236,10 +236,7 @@ define([
                     var keys = {},
                         space = globals.spaces.get(spaceid),
                         publicKeys = JSON.parse($('keys', response).text()),
-                        new_key;
-
-                    // Create new key
-                    new_key = husher.randomKey();
+                        new_key = husher.randomKey();
 
                     // Encrypt keys with remaining members public keys
                     _.each(publicKeys, function (pKey, userid) {
@@ -278,10 +275,7 @@ define([
                     var keys = {},
                         space = globals.spaces.get(spaceid),
                         publicKeys = JSON.parse($('keys', response).text()),
-                        new_key;
-
-                    // Create new key
-                    new_key = husher.randomKey();
+                        new_key = husher.randomKey();
 
                     // Encrypt keys with remaining members public keys
                     _.each(publicKeys, function (pKey, userid) {
