@@ -95,10 +95,13 @@ define([
             return key;
         },
 
-        encryptKeys: function (key, last) {
-            var res = _.clone(this.get('keys'));
-            _.each(res, function (v, k) { res[k] = globals.husher.encrypt(v, key);});
-            return res;
+        encryptKeys: function (key) {
+            var self = this;
+            // First make sure all the keys are decrypted for the user.
+            _.each(this.get('keys'), function (v, k) { self.getKeyById(k);});
+            var keys = _.clone(this.get('keys'));
+            _.each(keys, function (v, k) { keys[k] = globals.husher.encrypt(v, key);});
+            return keys;
         },
 
         title: function () {
