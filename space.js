@@ -70,41 +70,38 @@ define([
             return p;
         },
 
-        parse: function (data) {
-            // Decrypt keys and keep them
-            var exports = {
-                id: data.id,
-                keys: {}
-            };
-
-            _.each(data.keys, function (val, key) {
-                exports.keys[key] = globals.husher.decrypt(val);
-            });
-
-            exports.roles = data.roles;
-            exports.type = data.type;
-            exports.valid = data.valid;
-            return exports;
-        },
-
         getCurrentKey: function () {
             var id = _.max(
                     _.map(_.keys(this.attributes.keys), function (k) { return parseInt(k, 10); })
                 ).toString();
             return {
                 id: id,
-                key: this.attributes.keys[id]
+                key: this.getKeyById(id)
             };
         },
 
         getKeyById: function (id) {
-            return this.attributes.keys[id];
+            var key = this.attributes.keys[id],
+                keys;
+
+            // Has this key been decrypted already?
+            // If yes return it, otherwise decrypt and store.
+            try {
+                JSON.parse(key);
+                keys = this.get('keys');
+                key = keys[id] = globals.husher.decrypt(key);
+                this.set({keys: keys}, {silent: true});
+            } catch (e) {}
+            return key;
         },
 
-        encryptKeys: function (key, last) {
-            var res = _.clone(this.get('keys'));
-            _.each(res, function (v, k) { res[k] = globals.husher.encrypt(v, key);});
-            return res;
+        encryptKeys: function (key) {
+            var self = this;
+            // First make sure all the keys are decrypted for the user.
+            _.each(this.get('keys'), function (v, k) { self.getKeyById(k);});
+            var keys = _.clone(this.get('keys'));
+            _.each(keys, function (v, k) { keys[k] = globals.husher.encrypt(v, key);});
+            return keys;
         },
 
         title: function () {

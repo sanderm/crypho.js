@@ -205,27 +205,22 @@ define([
                 iq = $iq({to: this.service, type: 'set', id: this._connection.getUniqueId('crypho')})
                     .c('addmember', {xmlns: Strophe.NS.CRYPHO, spaceid: spaceid, memberid: memberid});
 
-            this._connection.sendIQ(iq.tree(),
-                function (response) {
-                    //Encrypt space keys with member public key.
-                    var space = globals.spaces.get(spaceid),
-                        spaceKeys = space.get('keys'),
-                        publicKey = $('key', response).text(),
-                        keys = {};
+            this._connection.sendIQ(iq.tree(), function (response) {
+                //Encrypt space keys with the new member's public key.
+                var space = globals.spaces.get(spaceid),
+                    publicKey = $('key', response).text(),
+                    keys;
 
-                    publicKey = husher.buildPublicKey(publicKey);
+                publicKey = husher.buildPublicKey(publicKey);
+                keys = space.encryptKeys(publicKey);
 
-                    _.each(spaceKeys, function (key, keyId) {
-                        keys[keyId] = globals.husher.encrypt(key, publicKey);
-                    });
+                // Send response and resolve
+                iq = $iq({to: self.service, type: 'set', id: $(response).attr('id')})
+                    .c('spacekeys', {xmlns: Strophe.NS.CRYPHO})
+                    .t(JSON.stringify(keys));
 
-                    // Send response and resolve
-                    iq = $iq({to: self.service, type: 'set', id: $(response).attr('id')})
-                        .c('spacekeys', {xmlns: Strophe.NS.CRYPHO})
-                        .t(JSON.stringify(keys));
-
-                    self._connection.sendIQ(iq.tree(), d.resolve, d.reject);
-                }, d.reject);
+                self._connection.sendIQ(iq.tree(), d.resolve, d.reject);
+            }, d.reject);
 
             return d.promise();
 
@@ -241,10 +236,7 @@ define([
                     var keys = {},
                         space = globals.spaces.get(spaceid),
                         publicKeys = JSON.parse($('keys', response).text()),
-                        new_key;
-
-                    // Create new key
-                    new_key = husher.randomKey();
+                        new_key = husher.randomKey();
 
                     // Encrypt keys with remaining members public keys
                     _.each(publicKeys, function (pKey, userid) {
@@ -283,10 +275,7 @@ define([
                     var keys = {},
                         space = globals.spaces.get(spaceid),
                         publicKeys = JSON.parse($('keys', response).text()),
-                        new_key;
-
-                    // Create new key
-                    new_key = husher.randomKey();
+                        new_key = husher.randomKey();
 
                     // Encrypt keys with remaining members public keys
                     _.each(publicKeys, function (pKey, userid) {
