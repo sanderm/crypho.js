@@ -64,8 +64,6 @@ define([
 
             p.done(function (json) {
                 self.set(self.parse(json));
-                self.infostream.fetchProgressive();
-                self.filestream.fetch();
             });
             return p;
         },
