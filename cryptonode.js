@@ -100,6 +100,7 @@ define([
             p = this.fetch({rsm: rsm, merge: true, add: true, remove: false});
             p.done(function (items, rsm) {
                 self._rsm = rsm;
+                self.trigger('rsmfetch');
             });
             p.always(function (r) {
                 delete self._isFetching;
