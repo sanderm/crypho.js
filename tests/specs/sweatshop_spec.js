@@ -23,11 +23,12 @@ define(['jquery', 'underscore', 'backbone', 'crypho/sweatshop'], function ($, _,
             expect(_.keys(ss._workers)).toEqual([]);
         });
 
-        it('can queue and execute a job', function () {
+        it('can queue and execute a job', function (done) {
             ss.registerWorker('worker', workerUrl);
             job = ss.queue('worker', 'add', [2, 3]);
             job.done(function (result) {
                 expect(result).toEqual(5);
+                done();
             });
         });
 
