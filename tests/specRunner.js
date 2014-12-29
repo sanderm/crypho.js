@@ -23,7 +23,7 @@ require.config({
 
 
 require([
-    'specs/sweatshop_spec'
+    'specs/sweatshop_spec',
     'specs/husher_spec'
     ], function ($) {
 
