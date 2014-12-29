@@ -22,7 +22,11 @@ require.config({
 });
 
 
-require(['jquery', 'specs/husher_spec'], function ($) {
+require([
+    'specs/sweatshop_spec'
+    'specs/husher_spec'
+    ], function ($) {
+
     var jasmineEnv = jasmine.getEnv();
 
     window.onload();
