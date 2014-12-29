@@ -15,7 +15,8 @@
     "Backbone.xmpp": "1.0.0"
   },
   "devDependencies": {
-    "jasmine": ""
+    "jasmine": "",
+    "requirejs": "2.1.15"
   },
   "license": "Private",
   "private": true,
