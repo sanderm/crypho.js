@@ -181,9 +181,9 @@ define([
                     jids: _.union(user.get('jids'), [ev.jid])
                 });
                 away = user.get('away');
-                away[ev.jid] = ev.show && ev.awaySince || false;
+                away[ev.jid] = ev.show && ev.last || false;
                 user.set({away: away});
-                user.trigger('change:away', user.isAway(), ev.awaySince);
+                user.trigger('change:away', user.isAway(), ev.last);
                 if (!wasOnline) this.trigger('change:online', user, true);
             } else {
                 // Create the user
@@ -209,7 +209,7 @@ define([
             if (user) {
                 user.set({jids: _.without(user.get('jids'), ev.jid)});
                 user.set({away: _.omit(user.get('away'), ev.jid)});
-                user.trigger('change:away', user.isAway(), ev.awaySince);
+                user.trigger('change:away', user.isAway(), ev.last);
                 if (user.get('jids').length === 0) user.trigger('change:online', user, false);
             }
         },

@@ -10,7 +10,7 @@
   ],
   "dependencies": {
     "strophe": "1.1.3",
-    "strophe.plugins": ">=1.0.1",
+    "strophe.plugins": ">=1.0.4",
     "burry": "1.0.1",
     "Backbone.xmpp": "1.0.0"
   },
