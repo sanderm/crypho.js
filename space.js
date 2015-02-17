@@ -219,12 +219,6 @@ define([
         onKeyRequest: function (spaceId) {
             var p;
 
-            // Show the entropy gatherer form if necessary
-            if (husher.ready.state() === 'pending') {
-                var f = new Entropy();
-                f.render();
-            }
-
             // When we have enough entropy generate the keys.
             husher.ready.done(function () {
                 XMPP.connection.Crypho.addSpaceKey(spaceId);
