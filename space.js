@@ -116,12 +116,12 @@ define([
 
         shortTitle: function () {
             var participants = this.otherParticipants(),
-                more = participants.length - 2,
+                more = participants.length - 3,
                 display;
             if (more < 2) {
                 return this.title();
             }
-            participants = _.first(participants, 2);
+            participants = _.first(participants, 3);
             display = _.map(participants, function (user) { return user.fullname(); });
             display = display.join(', ');
             return globals.transl('${display} and ${more} more', {display: display, more: more});
