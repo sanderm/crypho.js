@@ -102,12 +102,29 @@ define([
             return keys;
         },
 
+        otherParticipants: function () {
+            return _.reject(globals.roster.inSpace(this.id), function (user) { return user === globals.me;});
+        },
+
         title: function () {
-            var participants =  _.map(_.reject(globals.roster.inSpace(this.id), function (user) { return user === globals.me;}), function (user) { return user.fullname(); });
+            var participants =  _.map(this.otherParticipants(), function (user) { return user.fullname(); });
             if (participants.length === 0) {
                 return globals.transl('No members');
             }
             return participants.join(', ');
+        },
+
+        shortTitle: function () {
+            var participants = this.otherParticipants(),
+                more = participants.length - 2,
+                display;
+            if (more < 2) {
+                return this.title();
+            }
+            participants = _.first(participants, 2);
+            display = _.map(participants, function (user) { return user.fullname(); });
+            display = display.join(', ');
+            return globals.transl('${display} and ${more} more', {display: display, more: more});
         },
 
         userRoles: function (userID) {
