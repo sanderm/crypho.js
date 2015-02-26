@@ -6,5 +6,5 @@
     "devel": true,
     "jquery": false,
     "predef": ["define", "require", "__dirname", "cordova", "Keychain", "device", "plugins", "importScripts", "$pres", "Strophe", "$iq",
-    "it", "describe", "expect"]
+    "it", "describe", "expect", "beforeEach", "afterEach"]
 }
