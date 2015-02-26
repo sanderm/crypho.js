@@ -35,16 +35,16 @@ define(['jquery', 'underscore', 'backbone', 'crypho/sweatshop'], function ($, _,
         it('can queue and execute multiple jobs in the right order', function (done) {
 
             ss.registerWorker('worker', 'specs/worker.js');
-            job1 = ss.queue('worker', 'add', [1, 2]);
-            job2 = ss.queue('worker', 'fail');
-            job3 = ss.queue('worker', 'add', [3, 4]);
+            var job1 = ss.queue('worker', 'add', [1, 2]);
+            var job2 = ss.queue('worker', 'fail');
+            var job3 = ss.queue('worker', 'add', [3, 4]);
 
             job1.done(function (result) {
                 expect(result).toEqual(3);
                 expect(job1.state()).toEqual('resolved');
                 expect(job2.state()).toEqual('pending');
                 expect(job3.state()).toEqual('pending');
-                expect(ss._workers['worker'].running.length + ss._workers['worker'].queued.length).toEqual(2);
+                expect(ss._workers.worker.running.length + ss._workers.worker.queued.length).toEqual(2);
             });
 
             job2.fail(function (result) {
