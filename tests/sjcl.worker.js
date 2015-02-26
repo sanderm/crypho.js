@@ -1,7 +1,7 @@
 /* global sjcl, self */
 
 importScripts('sjcl.js');
-importScripts('scrypt.js');
+importScripts('../scrypt.js');
 
 var encryptBinary = function (password, plaintext, params) {
         params = params || {};
