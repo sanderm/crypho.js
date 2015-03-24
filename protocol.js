@@ -458,6 +458,16 @@ define([
                 d.resolve(JSON.parse($('plan', response).text()));
             }, d.reject);
             return d.promise();
+        },
+
+        getDevices: function () {
+            var d = $.Deferred(),
+                iq = $iq({to: this.service, type: 'get', id: this._connection.getUniqueId('crypho')})
+                    .c('devices', {xmlns: Strophe.NS.CRYPHO});
+            this._connection.sendIQ(iq.tree(), function (response) {
+                d.resolve(JSON.parse($('devices', response).text()));
+            }, d.reject);
+            return d.promise();
         }
 
     });
