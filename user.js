@@ -272,7 +272,7 @@ define([
         },
 
         others: function () {
-            return this.reject(function (user) { return user==globals.me;});
+            return this.reject(function (user) { return user.id===globals.me.id;});
         },
 
     });
