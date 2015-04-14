@@ -2,15 +2,18 @@ define([
     'jquery',
     'underscore',
     'backbone',
+    'burry',
     'globals',
     './husher',
     'XMPP',
     './infostream',
     './filestream',
     './user'
-], function ($, _, Backbone, globals, husher, XMPP, InfoStream, FileStream, User) {
+], function ($, _, Backbone, Burry, globals, husher, XMPP, InfoStream, FileStream, User) {
 
     var Space = {};
+
+    Space.store = new Burry.Store('spaces', 1440);
 
     Space.Space = Backbone.Model.extend({
 
@@ -29,6 +32,7 @@ define([
                 connection: XMPP.connection,
                 space: this
             });
+
             this.filestream = new FileStream.FileStream([], {
                 id: '/spaces/' + this.id + '/vault',
                 connection: XMPP.connection,
@@ -61,7 +65,7 @@ define([
         fetch: function () {
             var self = this,
                 p = XMPP.connection.Crypho.getSpace(this.id);
-
+            console.log('FETCH SPACE ' + this.id);
             p.done(function (json) {
                 self.set(self.parse(json));
             });
@@ -228,8 +232,24 @@ define([
 
         fetch: function () {
             var spaces, self = this,
-                p = XMPP.connection.Crypho.getSpaces();
-            p.done(function (res) {
+                d = $.Deferred(),
+                p;
+
+            var cached = Space.store.get('spaces');
+            if (cached) {
+                spaces = _.map(cached, function (data) {
+                    var space = new Space.Space(self.model.prototype.parse(data));
+                    return space;
+                });
+
+                self.reset(spaces);
+                self._updateSelfGroups();
+                d.resolve();
+            }
+
+            XMPP.connection.Crypho.getSpaces()
+            .done(function (res) {
+                Space.store.set('spaces', res);
                 spaces = _.map(res, function (data) {
                     var space = new Space.Space(self.model.prototype.parse(data));
 
@@ -241,8 +261,9 @@ define([
 
                 self.reset(spaces);
                 self._updateSelfGroups();
+                d.resolve();
             });
-            return p;
+            return d;
         }
     });
 
