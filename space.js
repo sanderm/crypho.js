@@ -109,7 +109,7 @@ define([
         title: function () {
             var participants =  _.map(this.otherParticipants(), function (user) { return user.fullname(); });
             if (participants.length === 0) {
-                return globals.transl('No members');
+                return '';
             }
             return participants.join(', ');
         },
