@@ -179,6 +179,7 @@ define([
             XMPP.connection.Crypho.on('spacesupdated', this.onSpacesUpdate, this);
             XMPP.connection.Crypho.on('spacedeleted', this.onSpaceDeleted, this);
             XMPP.connection.Crypho.on('spacekeyrequest', this.onKeyRequest, this);
+            XMPP.connection.Crypho.on('spaceread', this.onSpaceRead, this);
         },
 
         _updateSelfGroups: function () {
@@ -214,6 +215,13 @@ define([
             space.stopListening();
             this.remove(spaceID);
             this._updateSelfGroups();
+        },
+
+        onSpaceRead: function (spaceID) {
+            var space = this.get(spaceID);
+            if (space) {
+                space.set('unread', 0);
+            }
         },
 
         onKeyRequest: function (spaceId) {
