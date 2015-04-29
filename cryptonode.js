@@ -92,12 +92,13 @@ define([
 
             // Are we locked?
             if (this._isFetching) {
-                return;
+                p = this._isFetching;
+                return p;
             }
 
             // Lock
-            this._isFetching = true;
             p = this.fetch({rsm: rsm, merge: true, add: true, remove: false});
+            this._isFetching = p;
             p.done(function (items, rsm) {
                 self._rsm = rsm;
                 self.trigger('rsmfetch');
