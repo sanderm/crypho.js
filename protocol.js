@@ -468,6 +468,22 @@ define([
                 d.resolve(JSON.parse($('devices', response).text()));
             }, d.reject);
             return d.promise();
+        },
+
+        discoverContacts: function (hashes) {
+            var d = $.Deferred(),
+                iq = $iq({to: this.service, type: 'get', id: this._connection.getUniqueId('crypho')})
+                    .c('discovercontacts', {xmlns: Strophe.NS.CRYPHO});
+
+            _.each(hashes, function (hash) {
+                iq.c('item').t(hash).up();
+            });
+
+            this._connection.sendIQ(iq.tree(), function (response) {
+                d.resolve(_.map($('item', response), function (item) { return $(item).text(); }));
+            }, d.reject);
+            return d.promise();
+
         }
 
     });
