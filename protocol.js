@@ -480,7 +480,13 @@ define([
             });
 
             this._connection.sendIQ(iq.tree(), function (response) {
-                d.resolve(_.map($('item', response), function (item) { return $(item).text(); }));
+                var matches = $('matches', response).text();
+                try {
+                    matches = JSON.parse(matches)
+                } catch (e) {
+                    matches = {};
+                }
+                d.resolve(matches);
             }, d.reject);
             return d.promise();
 
