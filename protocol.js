@@ -93,6 +93,18 @@ define([
             return d.promise();
         },
 
+        updateSpace: function(uid, title) {
+            var d = $.Deferred(),
+                iq = $iq({
+                    to: this.service,
+                    type: 'set',
+                    id: this._connection.getUniqueId('crypho')})
+                .c('spaceupdate', {xmlns: Strophe.NS.CRYPHO, uid: uid})
+                .t(JSON.stringify({title:title}));
+            this._connection.sendIQ(iq.tree(), d.resolve, d.reject);
+            return d.promise();
+        },
+
         getSpaces: function () {
             var d = $.Deferred(),
                 iq = $iq({to: this.service, type: 'get', id: this._connection.getUniqueId('crypho')});

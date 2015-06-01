@@ -107,6 +107,10 @@ define([
         },
 
         title: function () {
+            var title = this.get('title');
+            if (title) {
+                return title;
+            }
             var participants =  _.map(this.otherParticipants(), function (user) { return user.fullname(); });
             if (participants.length === 0) {
                 return '';
