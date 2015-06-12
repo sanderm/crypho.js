@@ -34,14 +34,14 @@ define([
             vCard = User.store.get(this.id);
             if (vCard) {
                 this.set({vCard: vCard});
-                d.resolve({vCard: vCard});
+                d.resolve(this);
             } else {
                 XMPP.connection.vCard.get(this.id).always(function (vCard) {
                     if (vCard) {
                         self.set({vCard: vCard});
                         User.store.set(self.id, vCard);
                     }
-                    d.resolve({vCard: vCard});
+                    d.resolve(self);
                 });
             }
             return d.promise();
