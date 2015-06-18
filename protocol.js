@@ -349,10 +349,13 @@ define([
 
         },
 
-        getUpdates: function () {
-            var d = $.Deferred(),
-                iq = $iq({to: this.service, type: 'get', id: this._connection.getUniqueId('crypho')})
+        getUpdates: function (data) {
+            var d = $.Deferred(),iq;
+            iq = $iq({to: this.service, type: 'get', id: this._connection.getUniqueId('crypho')})
                     .c('updates', {xmlns: Strophe.NS.CRYPHO});
+            if (data) {
+                iq.t(JSON.stringify(data));
+            }
             this._connection.sendIQ(iq.tree(), function (response) {
                 d.resolve(JSON.parse($('updates', response).text()));
             }, d.reject);
