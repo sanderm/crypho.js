@@ -6,6 +6,7 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
         _b64: sjcl.codec.base64,
         _hex: sjcl.codec.hex,
         _bytes: sjcl.codec.bytes,
+        _hash: sjcl.hash.sha256.hash,
 
         _versions: {
             1: {
@@ -37,6 +38,10 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
 
         _generateKeyPair: function () {
             return sjcl.ecc.elGamal.generateKeys(husher._CURVE);
+        },
+
+        _generateSigningKeyPair: function () {
+            return sjcl.ecc.ecdsa.generateKeys(husher._CURVE);
         },
 
         _strengthenScrypt: function (passwd, options) {
@@ -143,11 +148,27 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
             return p;
         },
 
+        sign: function (data) {
+            var hash = husher._hash(data);
+            return husher._b64.fromBits(this.signKey.sec.sign(hash));
+        },
+
+        verify: function (data, signature) {
+            var hash = husher._hash(data);
+            signature = husher._b64.toBits(signature);
+            try {
+                return this.signKey.pub.verify(hash, signature);
+            } catch (e) {
+                return false;
+            }
+        },
+
         generate: function (password) {
             var d = $.Deferred(),
                 self = this;
             husher._strengthenScrypt(password).done(function (strengthened) {
-                self.key = husher._generateKeyPair();
+                self.key = sjcl.ecc.elGamal.generateKeys(husher._CURVE);
+                self.signKey = sjcl.ecc.ecdsa.generateKeys(husher._CURVE);
                 self.pkey = strengthened.key;
                 self.psalt = strengthened.salt;
                 self.pN = strengthened.N;
