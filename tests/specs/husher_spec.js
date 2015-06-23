@@ -22,6 +22,7 @@ define(['crypho/husher', 'sjcl'], function (husher, sjcl) {
             husher._strengthenScrypt('secret')
             .done(function (res) {
                 expect(res.key.length).toEqual(8); // 8 words = 256 bit
+                expect(res.key2.length).toEqual(8); // 8 words = 256 bit
                 expect(res.salt.length).toEqual(2); // 2 words = 64 bit
                 done();
             });
@@ -36,16 +37,20 @@ define(['crypho/husher', 'sjcl'], function (husher, sjcl) {
         it('generates elGamal public/private keys of the NIST 384 family when calling generate()', function () {
             expect(h.key.pub instanceof sjcl.ecc.elGamal.publicKey).toBeTruthy();
             expect(h.key.sec instanceof sjcl.ecc.elGamal.secretKey).toBeTruthy();
+            expect(h.signKey.pub instanceof sjcl.ecc.ecdsa.publicKey).toBeTruthy();
+            expect(h.signKey.sec instanceof sjcl.ecc.ecdsa.secretKey).toBeTruthy();
             expect(h.key.pub._curve).toEqual(sjcl.ecc.curves.c384);
             expect(h.key.sec._curve).toEqual(sjcl.ecc.curves.c384);
         });
 
         it('generates an 256 bit AES from the provided passphrase using scrypt when calling generate()', function (done) {
             expect(h.pkey.length).toEqual(8); // 8 words = 256 bit
+            expect(h.skey.length).toEqual(8); // 8 words = 256 bit
             expect(h.psalt.length).toEqual(2); // 2 words = 64 bit
             husher._strengthenScrypt('secret', {salt: h.psalt})
             .done(function (res) {
                 expect(res.key).toEqual(h.pkey);
+                expect(res.key2).toEqual(h.skey);
                 done();
             });
         });
@@ -62,6 +67,11 @@ define(['crypho/husher', 'sjcl'], function (husher, sjcl) {
 
         it('will not encrypt using AES in CCM mode without auth data', function () {
             expect(function () { h.encrypt('foo', 's3cr1t'); }).toThrow(new Error('Only authenticated CCM supported'));
+        });
+
+        it('can sign/verify using ECDSA Public-Private cryptosystem', function () {
+            var sig = h.sign('foo');
+            expect(h.verify('foo', sig)).toBeTruthy();
         });
 
         it('can serialize the cryptosystem to JSON and back', function (done) {

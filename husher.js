@@ -51,7 +51,7 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
             this.sweatshop.queue('sjcl', 'scrypt', [passwd, options])
                 .done(function (key) {
                     options.key = key.splice(0,8);
-                    options.signKey =  key;
+                    options.key2 =  key;
                     d.resolve(options);
                 })
                 .fail(d.reject);
@@ -170,7 +170,8 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
             husher._strengthenScrypt(password).done(function (strengthened) {
                 self.key = sjcl.ecc.elGamal.generateKeys(husher._CURVE);
                 self.signKey = sjcl.ecc.ecdsa.generateKeys(husher._CURVE);
-                self.pkey = strengthened.key;
+                self.pkey = strengthened.key; // The strengthened key used to encrypt the private El Gamal key
+                self.skey = strengthened.key2; // The strengthened key used to encrypt the private ECDSA key
                 self.psalt = strengthened.salt;
                 self.pN = strengthened.N;
                 self.pr = strengthened.r;
