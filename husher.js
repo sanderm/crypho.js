@@ -47,10 +47,11 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
         _strengthenScrypt: function (passwd, options) {
             var d = $.Deferred();
             options = options || {};
-            options = _.extend({N: 16384, r: 8, p: 1, dkLen: 32, salt: husher._getRandomWords(2)}, options);
+            options = _.extend({N: 16384, r: 8, p: 1, dkLen: 64, salt: husher._getRandomWords(2)}, options);
             this.sweatshop.queue('sjcl', 'scrypt', [passwd, options])
                 .done(function (key) {
-                    options.key = key;
+                    options.key = key.splice(0,8);
+                    options.signKey =  key;
                     d.resolve(options);
                 })
                 .fail(d.reject);
