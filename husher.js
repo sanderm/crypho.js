@@ -25,6 +25,7 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
 
         Husher: function (options) {
             this.key = null;
+            this.signKey = null;
             this.pkey = null;
             this.psalt = null;
             this.pN = null;
@@ -181,7 +182,8 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
             return d.promise();
         },
 
-        toJSON: function (email) {
+        // toJSON from the time when we did not have a sign key.
+        _legacyToJSON: function (email) {
             var encsec = JSON.parse(
                 sjcl.encrypt(
                     this.pkey,
@@ -207,7 +209,8 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
             };
         },
 
-        fromJSON: function (passwd, json) {
+        // fromJSON from the time when we did not have a sign key.
+        _legacyFromJSON: function (passwd, json) {
             var d = $.Deferred(),
                 self = this,
                 exp, strengthen;

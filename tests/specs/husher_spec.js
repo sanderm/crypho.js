@@ -74,17 +74,17 @@ define(['crypho/husher', 'sjcl'], function (husher, sjcl) {
             expect(h.verify('foo', sig)).toBeTruthy();
         });
 
-        it('can serialize the cryptosystem to JSON and back', function (done) {
+        it('can serialize the cryptosystem to JSON and back with the legacy JSON formatter', function (done) {
             var h2, json, res;
-            json = h.toJSON('foo@bar.com');
+            json = h._legacyToJSON('foo@bar.com');
 
             h2 = new husher.Husher();
-            h2.fromJSON('secret', json)
+            h2._legacyFromJSON('secret', json)
             .done(function () {
-                res = sjcl.encrypt(h.key.pub, 'foo');
-                expect(sjcl.decrypt(h2.key.sec, res)).toEqual('foo');
-                res = sjcl.encrypt(h2.key.pub, 'foo');
-                expect(sjcl.decrypt(h.key.sec, res)).toEqual('foo');
+                res = h.encrypt('foo', h.key.pub);
+                expect(h2.decrypt(res, h2.key.sec)).toEqual('foo');
+                res = h2.encrypt('foo', h2.key.pub);
+                expect(h.decrypt(res, h.key.sec)).toEqual('foo');
                 done();
             });
         });
