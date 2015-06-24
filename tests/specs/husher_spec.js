@@ -110,5 +110,26 @@ define(['crypho/husher', 'sjcl'], function (husher, sjcl) {
             });
         });
 
+        it('will use the legacy version when appropriate', function (done) {
+
+            var h = new husher.Husher(),
+                h2 = new husher.Husher(),
+                json;
+
+            spyOn(h, '_legacyToJSON').and.callThrough();
+            spyOn(h2, '_legacyFromJSON').and.callThrough();
+
+            h.generate('secret').done(function () {
+                delete h.signKey;
+                json = h.toJSON('foo@bar.com');
+                expect(h._legacyToJSON).toHaveBeenCalled();
+                h2.fromJSON('secret', json).done(function () {
+                    expect(h2._legacyFromJSON).toHaveBeenCalled();
+                    done();
+                });
+            });
+
+        });
+
     });
 });

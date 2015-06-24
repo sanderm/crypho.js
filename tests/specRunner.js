@@ -46,6 +46,5 @@ require([
     ], function ($) {
 
     var jasmineEnv = jasmine.getEnv();
-
     window.onload();
 });

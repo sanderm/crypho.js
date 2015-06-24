@@ -308,6 +308,8 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
                         adata: email
                     }
                 },
+
+                version: 2
             };
         },
 
@@ -315,6 +317,10 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
             var d = $.Deferred(),
                 self = this,
                 exp, data;
+
+            if (!(json.version && json.version === 2)) {
+                return this._legacyFromJSON(passwd, json);
+            }
 
             // Regenerate key from password
             this.psalt = husher._b64.toBits(json.scrypt.psalt);
