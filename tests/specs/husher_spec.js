@@ -89,5 +89,26 @@ define(['crypho/husher', 'sjcl'], function (husher, sjcl) {
             });
         });
 
+        it('can serialize the cryptosystem to JSON and back with the JSON formatter', function (done) {
+            var h2, json, res;
+            json = h.toJSON('foo@bar.com');
+
+            h2 = new husher.Husher();
+            h2.fromJSON('secret', json)
+            .done(function () {
+                res = h.encrypt('foo', h.key.pub);
+                expect(h2.decrypt(res, h2.key.sec)).toEqual('foo');
+                res = h2.encrypt('foo', h2.key.pub);
+                expect(h.decrypt(res, h.key.sec)).toEqual('foo');
+
+                res = h.sign('foo');
+                expect(h2.verify('foo', res)).toBeTruthy();
+                res = h2.sign('foo');
+                expect(h.verify('foo', res)).toBeTruthy();
+
+                done();
+            });
+        });
+
     });
 });
