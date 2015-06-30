@@ -69,6 +69,10 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
             return sjcl.codec.base64.fromBits(husher._getRandomWords(8));
         },
 
+        randomId: function () {
+            return sjcl.codec.hex.fromBits(husher._getRandomWords(2));
+        },
+
         buildPublicKey: function (key) {
             return new sjcl.ecc.elGamal.publicKey(husher._CURVE, husher._b64.toBits(key));
         },
