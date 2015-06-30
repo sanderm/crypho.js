@@ -11,15 +11,6 @@ define(['crypho/husher', 'sjcl'], function (husher, sjcl) {
             expect(kp.sec._curve).toEqual(sjcl.ecc.curves.c384);
         });
 
-        it('strengthens a key with PBKDF2 when calling _strengthenPBKDF2()', function (done) {
-            husher._strengthenPBKDF2('secret')
-            .done(function (res) {
-                expect(res.key.length).toEqual(8); // 8 words = 256 bit
-                expect(res.salt.length).toEqual(2); // 2 words = 64 bit
-                done();
-            });
-        });
-
         it('strengthens a key with scrypt when calling _strengthenScrypt()', function (done) {
             husher._strengthenScrypt('secret')
             .done(function (res) {
