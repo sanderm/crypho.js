@@ -12,6 +12,7 @@ define([
 
         _connection: null,
         service: null,
+        version: '1.0',
 
         init: function (conn) {
             this._connection = conn;
@@ -49,23 +50,26 @@ define([
             return true;
         },
 
-        _createIQ: function (options) {
+        _createIQ: function (name, options, attrs) {
             options = options || {};
             options.type = options.type || 'set';
             options.id = options.id || this._connection.getUniqueId(this._idPrefix);
-            return $iq({to: this.service, type: options.type, id: options.id});
+            attrs = attrs || {};
+            attrs.xmlns = Strophe.NS.CRYPHO;
+            attrs.version = this.version;
+            return $iq({to: this.service, type: options.type, id: options.id})
+                .c(name, attrs);
         },
 
         createGroupSpace: function(members) {
             var self = this,
                 d = $.Deferred(),
-                iq = this._createIQ(),
                 key = husher.randomKey(),
                 userid = Strophe.getNodeFromJid(this._connection.jid),
-                keys = {};
+                keys = {},
+                iq = this._createIQ('createspace')
+                  .t(JSON.stringify({members: members}));
 
-            iq.c('createspace', {xmlns: Strophe.NS.CRYPHO})
-              .t(JSON.stringify({members: members}));
             this._connection.sendIQ(iq.tree(), function (response) {
                 var pubKey, pubKeys;
                 pubKeys = JSON.parse($('keys', response).text());
@@ -75,9 +79,7 @@ define([
                     keys[member] = globals.husher.encrypt(key, pubKey);
                 });
                 keys[globals.me.userID()] = globals.husher.encrypt(key, globals.husher.key.pub);
-
-                iq = $iq({to: self.service, type: 'set', id: $(response).attr('id')})
-                    .c('spacekeys', {xmlns: Strophe.NS.CRYPHO})
+                iq = self._createIQ('spacekeys', {id: $(response).attr('id')})
                     .t(JSON.stringify(keys));
                 self._connection.sendIQ(iq.tree(),
                     function (response) {
@@ -92,15 +94,14 @@ define([
 
         deleteSpace: function(uid) {
             var d = $.Deferred(),
-                iq = this._createIQ().c('deletespace', {xmlns: Strophe.NS.CRYPHO, uid: uid});
+                iq = this._createIQ('deletespace', {}, {uid: uid});
             this._connection.sendIQ(iq.tree(), d.resolve, d.reject);
             return d.promise();
         },
 
         updateSpace: function(uid, title) {
             var d = $.Deferred(),
-                iq = this._createIQ()
-                    .c('spaceupdate', {xmlns: Strophe.NS.CRYPHO, uid: uid})
+                iq = this._createIQ('spaceupdate', {}, {uid: uid})
                     .t(JSON.stringify({title:title}));
             this._connection.sendIQ(iq.tree(), d.resolve, d.reject);
             return d.promise();
@@ -108,7 +109,7 @@ define([
 
         getSpaces: function () {
             var d = $.Deferred(),
-                iq = this._createIQ({type: 'get'}).c('spaces', {xmlns: Strophe.NS.CRYPHO});
+                iq = this._createIQ('spaces', {type: 'get'});
             this._connection.sendIQ(iq.tree(), function (response) {
                 d.resolve(JSON.parse($('spaces', response).text()));
             }, d.reject);
@@ -117,7 +118,7 @@ define([
 
         getSpace: function (uid) {
             var d = $.Deferred(),
-                iq = this._createIQ({type: 'get'}).c('space', {xmlns: Strophe.NS.CRYPHO, id: uid});
+                iq = this._createIQ('space', {type: 'get'}, {id: uid});
             this._connection.sendIQ(iq.tree(), function (response) {
                 d.resolve(JSON.parse($('space', response).text()));
             }, d.reject);
@@ -126,16 +127,15 @@ define([
 
         invite: function (emails, message) {
             var d = $.Deferred(),
-                iq = this._createIQ()
-                    .c('invite', {xmlns: Strophe.NS.CRYPHO}, JSON.stringify({emails: emails, message: message}));
+                iq = this._createIQ('invite')
+                    .t(JSON.stringify({emails: emails, message: message}));
             this._connection.sendIQ(iq.tree(), d.resolve, d.reject);
             return d.promise();
         },
 
         getInvitations: function () {
             var d = $.Deferred(),
-                iq = this._createIQ({type: 'get'})
-                    .c('invitations', {xmlns: Strophe.NS.CRYPHO});
+                iq = this._createIQ('invitations', {type: 'get'});
             this._connection.sendIQ(iq.tree(), function (response) {
                 d.resolve(JSON.parse($('invitations', response).text()));
             }, d.reject);
@@ -144,8 +144,7 @@ define([
 
         getSentInvitations: function () {
             var d = $.Deferred(),
-                iq = this._createIQ({type: 'get'})
-                    .c('sentinvitations', {xmlns: Strophe.NS.CRYPHO});
+                iq = this._createIQ('sentinvitations', {type: 'get'});
             this._connection.sendIQ(iq.tree(), function (response) {
                 d.resolve(JSON.parse($('invitations', response).text()));
             }, d.reject);
@@ -154,8 +153,7 @@ define([
 
         rejectInvitation: function (uid) {
             var d = $.Deferred(),
-                iq = this._createIQ()
-                    .c('rejectinvitation', {xmlns: Strophe.NS.CRYPHO})
+                iq = this._createIQ('rejectinvitation')
                     .t(JSON.stringify({uid: uid}));
             this._connection.sendIQ(iq.tree(), d.resolve, d.reject);
             return d.promise();
@@ -163,17 +161,16 @@ define([
 
         retractInvitation: function (uid) {
             var d = $.Deferred(),
-                iq = this._createIQ()
-                        .c('retractinvitation', {xmlns: Strophe.NS.CRYPHO})
-                        .t(JSON.stringify({uid: uid}));
+                iq = this._createIQ('retractinvitation')
+                    .t(JSON.stringify({uid: uid}));
             this._connection.sendIQ(iq.tree(), d.resolve, d.reject);
             return d.promise();
         },
 
         acceptInvitation: function (uid) {
             var d = $.Deferred(), self = this,
-                iq = this._createIQ()
-                        .c('acceptinvitation', {xmlns: Strophe.NS.CRYPHO}).t(uid),
+                iq = this._createIQ('acceptinvitation')
+                    .t(uid),
                 key = husher.randomKey(),
                 keys = {};
 
@@ -185,8 +182,7 @@ define([
 
                     keys[globals.me.userID()] = globals.husher.encrypt(key, globals.husher.key.pub);
                     keys[invitor_id] = globals.husher.encrypt(key, invitor_pubkey);
-                    iq = self._createIQ({id: $(response).attr('id')})
-                        .c('spacekeys', {xmlns: Strophe.NS.CRYPHO})
+                    iq = self._createIQ('spacekeys', {id: $(response).attr('id')})
                         .t(JSON.stringify(keys));
 
                     self._connection.sendIQ(iq.tree(),
@@ -202,9 +198,8 @@ define([
 
         setUserRolesInSpace: function (spaceid, uid, diff) {
             var d = $.Deferred(), self = this,
-                iq = this._createIQ()
-                        .c('userrole', {xmlns: Strophe.NS.CRYPHO})
-                        .t(JSON.stringify({spaceid: spaceid, userid: uid, diff: diff}));
+                iq = this._createIQ('userrole')
+                    .t(JSON.stringify({spaceid: spaceid, userid: uid, diff: diff}));
 
             this._connection.sendIQ(iq.tree(), d.resolve, d.reject);
             return d.promise();
@@ -212,8 +207,7 @@ define([
 
         addSpaceMember: function (spaceid, memberid) {
             var d = $.Deferred(), self = this,
-                iq = this._createIQ()
-                    .c('addmember', {xmlns: Strophe.NS.CRYPHO, spaceid: spaceid, memberid: memberid});
+                iq = this._createIQ('addmember', {}, {spaceid: spaceid, memberid: memberid});
 
             this._connection.sendIQ(iq.tree(), function (response) {
                 //Encrypt space keys with the new member's public key.
@@ -225,8 +219,7 @@ define([
                 keys = space.encryptKeys(publicKey);
 
                 // Send response and resolve
-                iq = self._createIQ({id: $(response).attr('id')})
-                    .c('spacekeys', {xmlns: Strophe.NS.CRYPHO})
+                iq = self._createIQ('spacekeys', {id: $(response).attr('id')})
                     .t(JSON.stringify(keys));
 
                 self._connection.sendIQ(iq.tree(), d.resolve, d.reject);
@@ -238,8 +231,7 @@ define([
 
         removeSpaceMember: function (spaceid, memberid) {
             var d = $.Deferred(), self = this,
-                iq = this._createIQ()
-                    .c('removemember', {xmlns: Strophe.NS.CRYPHO, spaceid: spaceid, memberid: memberid});
+                iq = this._createIQ('removemember', {}, {spaceid: spaceid, memberid: memberid});
             this._connection.sendIQ(iq.tree(),
                 function (response) {
                     // Create new key and encrypt with response's public keys.
@@ -256,8 +248,7 @@ define([
                     });
 
                     // Send response and resolve
-                    iq = self._createIQ({id: $(response).attr('id')})
-                        .c('spacekeys', {xmlns: Strophe.NS.CRYPHO})
+                    iq = self._createIQ('spacekeys', {id: $(response).attr('id')})
                         .t(JSON.stringify(keys));
 
                     self._connection.sendIQ(iq.tree(), d.resolve, d.reject);
@@ -269,16 +260,14 @@ define([
 
         leaveSpace: function (spaceid) {
             var d = $.Deferred(), self = this,
-                iq = this._createIQ()
-                    .c('leavespace', {xmlns: Strophe.NS.CRYPHO, spaceid: spaceid});
+                iq = this._createIQ('leavespace', {}, {spaceid: spaceid});
             this._connection.sendIQ(iq.tree(), d.resolve, d.reject);
             return d.promise();
         },
 
         addSpaceKey: function(spaceid) {
             var d = $.Deferred(), self = this,
-                iq = this._createIQ()
-                    .c('addspacekey', {xmlns: Strophe.NS.CRYPHO, spaceid: spaceid});
+                iq = this._createIQ('addspacekey', {}, {spaceid: spaceid});
             this._connection.sendIQ(iq.tree(),
                 function (response) {
                     // Create new key and encrypt with response's public keys.
@@ -295,8 +284,7 @@ define([
                     });
 
                     // Send response and resolve
-                    iq = self._createIQ({id: $(response).attr('id')})
-                        .c('spacekeys', {xmlns: Strophe.NS.CRYPHO})
+                    iq = self._createIQ('spacekeys', {id: $(response).attr('id')})
                         .t(JSON.stringify(keys));
 
                     self._connection.sendIQ(iq.tree(), d.resolve, d.reject);
@@ -306,24 +294,23 @@ define([
 
         setPassword: function (keypair) {
             var d = $.Deferred(), self = this,
-                iq = this._createIQ()
-                    .c('changepassword', {xmlns: Strophe.NS.CRYPHO}).t(JSON.stringify(keypair));
+                iq = this._createIQ('changepassword')
+                    .t(JSON.stringify(keypair));
             this._connection.sendIQ(iq.tree(), d.resolve, d.reject);
             return d.promise();
         },
 
         setFullname: function (fullname) {
             var d = $.Deferred(), self = this,
-                iq = this._createIQ()
-                    .c('setfullname', {xmlns: Strophe.NS.CRYPHO}).t(fullname);
+                iq = this._createIQ('setfullname')
+                    .t(fullname);
             this._connection.sendIQ(iq.tree(), d.resolve, d.reject);
             return d.promise();
         },
 
         getTwoFactorData: function () {
             var d = $.Deferred(), self = this,
-                iq = this._createIQ({type: 'get'})
-                    .c('twofactor', {xmlns: Strophe.NS.CRYPHO});
+                iq = this._createIQ('twofactor', {type: 'get'});
             this._connection.sendIQ(iq.tree(), function (res) {
                  d.resolve(JSON.parse($('twofactor', res).text()));
             }, d.reject);
@@ -332,16 +319,15 @@ define([
 
         setMobile: function (local, country) {
             var d = $.Deferred(), self = this,
-                iq = this._createIQ()
-                    .c('mobile', {xmlns: Strophe.NS.CRYPHO}).t(JSON.stringify({country: country, local: local}));
+                iq = this._createIQ('mobile')
+                    .t(JSON.stringify({country: country, local: local}));
             this._connection.sendIQ(iq.tree(), d.resolve, d.reject);
             return d.promise();
         },
 
         ping: function (spaceid) {
             var d = $.Deferred(),
-                iq = this._createIQ({type: 'get'})
-                    .c('ping', {xmlns: Strophe.NS.CRYPHO, spaceid: spaceid});
+                iq = this._createIQ('ping', {type: 'get'}, {spaceid: spaceid});
             this._connection.sendIQ(iq.tree(), d.resolve, d.reject);
             return d.promise();
 
@@ -349,8 +335,7 @@ define([
 
         getUpdates: function (data) {
             var d = $.Deferred(),iq;
-            iq = this._createIQ({type: 'get'})
-                    .c('updates', {xmlns: Strophe.NS.CRYPHO});
+            iq = this._createIQ('updates', {type: 'get'});
             if (data) {
                 iq.t(JSON.stringify(data));
             }
@@ -362,8 +347,8 @@ define([
 
         update: function (data) {
             var d = $.Deferred(),
-                iq = this._createIQ()
-                    .c('update', {xmlns: Strophe.NS.CRYPHO}).t(JSON.stringify(data));
+                iq = this._createIQ('update')
+                    .t(JSON.stringify(data));
             this._connection.sendIQ(iq.tree(), d.resolve, d.reject);
             return d.promise();
         },
@@ -371,8 +356,7 @@ define([
         // Accounts
         getPlans: function () {
             var d = $.Deferred(),
-                iq = this._createIQ({type: 'get'})
-                    .c('plans', {xmlns: Strophe.NS.CRYPHO});
+                iq = this._createIQ('plans', {type: 'get'});
             this._connection.sendIQ(iq.tree(), function (resp) {
                 d.resolve(JSON.parse($('plans', resp).text()));
             }, d.reject);
@@ -381,8 +365,7 @@ define([
 
         getAccount: function () {
             var d = $.Deferred(),
-                iq = this._createIQ({type: 'get'})
-                    .c('account', {xmlns: Strophe.NS.CRYPHO});
+                iq = this._createIQ('account', {type: 'get'});
             this._connection.sendIQ(iq.tree(), function (resp) {
                 d.resolve(JSON.parse($('account', resp).text()));
             }, d.reject);
@@ -391,8 +374,7 @@ define([
 
         updateAccountDetails: function (details) {
             var d = $.Deferred(),
-                iq = $iq({to: this.service, type: 'set', id: this._connection.getUniqueId('crypho')})
-                    .c('account', {xmlns: Strophe.NS.CRYPHO})
+                iq = this._createIQ('account')
                     .c('details').t(JSON.stringify(details));
             this._connection.sendIQ(iq.tree(), d.resolve, d.reject);
             return d.promise();
@@ -400,8 +382,7 @@ define([
 
         getCCards: function () {
             var d = $.Deferred(),
-                iq = this._createIQ({type: 'get'})
-                    .c('ccards', {xmlns: Strophe.NS.CRYPHO});
+                iq = this._createIQ('ccards', {type: 'get'});
             this._connection.sendIQ(iq.tree(), function (response) {
                 d.resolve(JSON.parse($('ccards', response).text()));
             }, d.reject);
@@ -410,8 +391,7 @@ define([
 
         createCCardPayment: function (token) {
             var d = $.Deferred(),
-                iq = this._createIQ()
-                    .c('ccards', {xmlns: Strophe.NS.CRYPHO})
+                iq = this._createIQ('ccards')
                     .c('create').t(token);
             this._connection.sendIQ(iq.tree(), function (response) {
                 d.resolve(JSON.parse($('ccard', response).text()));
@@ -422,8 +402,7 @@ define([
         switchPlan: function (plan, ccard, token) {
             var d = $.Deferred(),
                 payload = JSON.stringify({plan: plan, ccard: ccard, token: token}),
-                iq = this._createIQ()
-                    .c('account', {xmlns: Strophe.NS.CRYPHO})
+                iq = this._createIQ('account')
                     .c('upgrade').t(payload);
             this._connection.sendIQ(iq.tree(), d.resolve, d.reject);
             return d.promise();
@@ -431,10 +410,9 @@ define([
 
         addAccountMember: function (email) {
             var d = $.Deferred(),
-                iq = this._createIQ()
-                    .c('account', {xmlns: Strophe.NS.CRYPHO})
-                    .c('addmember').t(email),
-                error;
+                error,
+                iq = this._createIQ('account')
+                    .c('addmember').t(email);
             this._connection.sendIQ(iq.tree(),
                 d.resolve,
                 function (response) {
@@ -446,8 +424,7 @@ define([
 
         removeAccountMember: function (uid) {
             var d = $.Deferred(),
-                iq = this._createIQ()
-                    .c('account', {xmlns: Strophe.NS.CRYPHO})
+                iq = this._createIQ('account')
                     .c('removemember').t(uid);
             this._connection.sendIQ(iq.tree(), d.resolve, d.reject);
             return d.promise();
@@ -455,8 +432,7 @@ define([
 
         removeAccountInvitation: function (email) {
             var d = $.Deferred(),
-                iq = this._createIQ()
-                    .c('account', {xmlns: Strophe.NS.CRYPHO})
+                iq = this._createIQ('account')
                     .c('removeinvitation').t(email);
             this._connection.sendIQ(iq.tree(), d.resolve, d.reject);
             return d.promise();
@@ -464,8 +440,7 @@ define([
 
         getTokenOffer: function (token) {
             var d = $.Deferred(),
-                iq = this._createIQ({type: 'get'})
-                    .c('offer', {xmlns: Strophe.NS.CRYPHO})
+                iq = this._createIQ('offer', {type: 'get'})
                     .c('token').t(token);
             this._connection.sendIQ(iq.tree(), function (response) {
                 d.resolve(JSON.parse($('plan', response).text()));
@@ -475,8 +450,7 @@ define([
 
         getDevices: function () {
             var d = $.Deferred(),
-                iq = this._createIQ({type: 'get'})
-                    .c('devices', {xmlns: Strophe.NS.CRYPHO});
+                iq = this._createIQ('devices', {type: 'get'});
             this._connection.sendIQ(iq.tree(), function (response) {
                 d.resolve(JSON.parse($('devices', response).text()));
             }, d.reject);
@@ -485,8 +459,7 @@ define([
 
         discoverContacts: function (hashes) {
             var d = $.Deferred(),
-                iq = this._createIQ({type: 'get'})
-                    .c('discovercontacts', {xmlns: Strophe.NS.CRYPHO});
+                iq = this._createIQ('discovercontacts', {type: 'get'});
 
             _.each(hashes, function (hash) {
                 iq.c('item').t(hash).up();
@@ -495,7 +468,7 @@ define([
             this._connection.sendIQ(iq.tree(), function (response) {
                 var matches = $('matches', response).text();
                 try {
-                    matches = JSON.parse(matches)
+                    matches = JSON.parse(matches);
                 } catch (e) {
                     matches = {};
                 }
