@@ -3,8 +3,6 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
     var husher = {
 
         _CURVE: sjcl.ecc.curves.c384,
-        _PBKDF2_COUNT: 1000,
-        _PBKDF2_LENGTH: 256,
         _b64: sjcl.codec.base64,
         _hex: sjcl.codec.hex,
         _bytes: sjcl.codec.bytes,
@@ -39,16 +37,6 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
 
         _generateKeyPair: function () {
             return sjcl.ecc.elGamal.generateKeys(husher._CURVE);
-        },
-
-        _strengthenPBKDF2: function (password, salt) {
-            var d = $.Deferred();
-            salt = salt || husher._getRandomWords(2);
-            d.resolve({
-                salt: salt,
-                key: sjcl.misc.pbkdf2(password, salt, husher._PBKDF2_COUNT, husher._PBKDF2_LENGTH)
-            });
-            return d.promise();
         },
 
         _strengthenScrypt: function (passwd, options) {
@@ -203,11 +191,7 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
             // Regenerate key from password
             this.psalt = husher._b64.toBits(json.sec.psalt);
 
-            if (json.sec.pN) {
-                strengthen = husher._strengthenScrypt(passwd, {salt: this.psalt});
-            } else {
-                strengthen = husher._strengthenPBKDF2(passwd, this.psalt);
-            }
+            strengthen = husher._strengthenScrypt(passwd, {salt: this.psalt});
 
             strengthen.done(function (strengthened) {
 
