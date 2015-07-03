@@ -22,9 +22,8 @@ define([
         },
 
         statusChanged: function (status, condition) {
-            var that = this;
             if (status === Strophe.Status.CONNECTED || status === Strophe.Status.ATTACHED) {
-                that.service =  'crypho.' + Strophe.getDomainFromJid(that._connection.jid);
+                this.service =  'crypho.' + Strophe.getDomainFromJid(this._connection.jid);
             }
             this._connection.addHandler(this.onNotification.bind(this), null, 'message', 'headline', null, this.service);
             this._connection.addHandler(this.onAnnounce.bind(this), null, 'message', 'headline', null, Strophe.getDomainFromJid(this._connection.jid));
