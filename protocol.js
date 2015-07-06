@@ -235,7 +235,6 @@ define([
                 function (response) {
                     // Create new key and encrypt with response's public keys.
                     var keys = {},
-                        space = globals.spaces.get(spaceid),
                         publicKeys = JSON.parse($('keys', response).text()),
                         new_key = husher.randomKey();
 
@@ -271,7 +270,6 @@ define([
                 function (response) {
                     // Create new key and encrypt with response's public keys.
                     var keys = {},
-                        space = globals.spaces.get(spaceid),
                         publicKeys = JSON.parse($('keys', response).text()),
                         new_key = husher.randomKey();
 
