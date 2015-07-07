@@ -35,21 +35,21 @@ define(['crypho/husher', 'sjcl'], function (husher, sjcl) {
         });
 
         it('generates elGamal public/private keys of the NIST 384 family when calling generate()', function () {
-            expect(h.key.pub instanceof sjcl.ecc.elGamal.publicKey).toBeTruthy();
-            expect(h.key.sec instanceof sjcl.ecc.elGamal.secretKey).toBeTruthy();
-            expect(h.signKey.pub instanceof sjcl.ecc.ecdsa.publicKey).toBeTruthy();
-            expect(h.signKey.sec instanceof sjcl.ecc.ecdsa.secretKey).toBeTruthy();
-            expect(h.key.pub._curve).toEqual(sjcl.ecc.curves.c384);
-            expect(h.key.sec._curve).toEqual(sjcl.ecc.curves.c384);
+            expect(h.encryptionKey.pub instanceof sjcl.ecc.elGamal.publicKey).toBeTruthy();
+            expect(h.encryptionKey.sec instanceof sjcl.ecc.elGamal.secretKey).toBeTruthy();
+            expect(h.signingKey.pub instanceof sjcl.ecc.ecdsa.publicKey).toBeTruthy();
+            expect(h.signingKey.sec instanceof sjcl.ecc.ecdsa.secretKey).toBeTruthy();
+            expect(h.encryptionKey.pub._curve).toEqual(sjcl.ecc.curves.c384);
+            expect(h.encryptionKey.sec._curve).toEqual(sjcl.ecc.curves.c384);
         });
 
         it('generates an 256 bit AES from the provided passphrase using scrypt when calling generate()', function (done) {
-            expect(h.pkey.length).toEqual(8); // 8 words = 256 bit
+            expect(h.keyGene.length).toEqual(8); // 8 words = 256 bit
             expect(h.skey.length).toEqual(8); // 8 words = 256 bit
-            expect(h.psalt.length).toEqual(2); // 2 words = 64 bit
-            husher._strengthenScrypt('secret', {salt: h.psalt})
+            expect(h.scryptSalt.length).toEqual(2); // 2 words = 64 bit
+            husher._strengthenScrypt('secret', {salt: h.scryptSalt})
             .done(function (res) {
-                expect(res.key).toEqual(h.pkey);
+                expect(res.key).toEqual(h.keyGene);
                 expect(res.key2).toEqual(h.skey);
                 done();
             });
@@ -81,10 +81,10 @@ define(['crypho/husher', 'sjcl'], function (husher, sjcl) {
             h2 = new husher.Husher();
             h2._legacyFromJSON('secret', json)
             .done(function () {
-                res = h.encrypt('foo', h.key.pub);
-                expect(h2.decrypt(res, h2.key.sec)).toEqual('foo');
-                res = h2.encrypt('foo', h2.key.pub);
-                expect(h.decrypt(res, h.key.sec)).toEqual('foo');
+                res = h.encrypt('foo', h.encryptionKey.pub);
+                expect(h2.decrypt(res, h2.encryptionKey.sec)).toEqual('foo');
+                res = h2.encrypt('foo', h2.encryptionKey.pub);
+                expect(h.decrypt(res, h.encryptionKey.sec)).toEqual('foo');
                 done();
             });
         });
@@ -96,10 +96,10 @@ define(['crypho/husher', 'sjcl'], function (husher, sjcl) {
             h2 = new husher.Husher();
             h2.fromJSON('secret', json)
             .done(function () {
-                res = h.encrypt('foo', h.key.pub);
-                expect(h2.decrypt(res, h2.key.sec)).toEqual('foo');
-                res = h2.encrypt('foo', h2.key.pub);
-                expect(h.decrypt(res, h.key.sec)).toEqual('foo');
+                res = h.encrypt('foo', h.encryptionKey.pub);
+                expect(h2.decrypt(res, h2.encryptionKey.sec)).toEqual('foo');
+                res = h2.encrypt('foo', h2.encryptionKey.pub);
+                expect(h.decrypt(res, h.encryptionKey.sec)).toEqual('foo');
 
                 res = h.sign('foo');
                 expect(h2.verify('foo', res)).toBeTruthy();
@@ -120,7 +120,7 @@ define(['crypho/husher', 'sjcl'], function (husher, sjcl) {
             spyOn(h2, '_legacyFromJSON').and.callThrough();
 
             h.generate('secret').done(function () {
-                delete h.signKey;
+                delete h.signingKey;
                 json = h.toJSON('foo@bar.com');
                 expect(h._legacyToJSON).toHaveBeenCalled();
                 h2.fromJSON('secret', json).done(function () {

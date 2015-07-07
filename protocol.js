@@ -77,7 +77,7 @@ define([
                     pubKey = husher.buildPublicKey(k);
                     keys[member] = globals.husher.encrypt(key, pubKey);
                 });
-                keys[globals.me.userID()] = globals.husher.encrypt(key, globals.husher.key.pub);
+                keys[globals.me.userID()] = globals.husher.encrypt(key, globals.husher.encryptionKey.pub);
                 iq = self._createIQ('spacekeys', {id: $(response).attr('id')})
                     .t(JSON.stringify(keys));
                 self._connection.sendIQ(iq.tree(),
@@ -179,7 +179,7 @@ define([
                     var invitor_id = $('uid', response).text(),
                         invitor_pubkey = husher.buildPublicKey($('pubkey', response).text());
 
-                    keys[globals.me.userID()] = globals.husher.encrypt(key, globals.husher.key.pub);
+                    keys[globals.me.userID()] = globals.husher.encrypt(key, globals.husher.encryptionKey.pub);
                     keys[invitor_id] = globals.husher.encrypt(key, invitor_pubkey);
                     iq = self._createIQ('spacekeys', {id: $(response).attr('id')})
                         .t(JSON.stringify(keys));

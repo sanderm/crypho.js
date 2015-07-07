@@ -24,13 +24,13 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
         _currVersion: 1,
 
         Husher: function (options) {
-            this.key = null;
-            this.signKey = null;
-            this.pkey = null;
-            this.psalt = null;
-            this.pN = null;
-            this.pr = null;
-            this.pp = null;
+            this.encryptionKey = null;  // El Gamal ECC keypair
+            this.signingKey = null;     // ECDSA keypair
+            this.keyGene = null;        // a key form which the AES keys that encrypt the private keys are generated
+            this.scryptSalt = null;     // the salt used by the scrypt KDF
+            this.pN = null;             // scrypt N
+            this.pr = null;             // scrypt r
+            this.pp = null;             // scrypt p
         },
 
         _getRandomWords: function (count) {
@@ -117,7 +117,7 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
             if (key && !(key instanceof sjcl.ecc.elGamal.publicKey) && !adata) {
                 throw new Error("Only authenticated CCM supported");
             }
-            key = key || this.key.pub;
+            key = key || this.encryptionKey.pub;
             if (adata) {
                 params.adata = adata;
             }
@@ -128,7 +128,7 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
         },
 
         decrypt: function (ct, key) {
-            key = key || this.key.sec;
+            key = key || this.encryptionKey.sec;
             ct = JSON.parse(ct);
             if (ct.v) {
                 ct = _.defaults(ct, husher._versions[ct.v]);
@@ -155,14 +155,14 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
 
         sign: function (data) {
             var hash = husher._hash(data);
-            return husher._b64.fromBits(this.signKey.sec.sign(hash));
+            return husher._b64.fromBits(this.signingKey.sec.sign(hash));
         },
 
         verify: function (data, signature) {
             var hash = husher._hash(data);
             signature = husher._b64.toBits(signature);
             try {
-                return this.signKey.pub.verify(hash, signature);
+                return this.signingKey.pub.verify(hash, signature);
             } catch (e) {
                 return false;
             }
@@ -172,11 +172,11 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
             var d = $.Deferred(),
                 self = this;
             husher._strengthenScrypt(password).done(function (strengthened) {
-                self.key = sjcl.ecc.elGamal.generateKeys(husher._CURVE);
-                self.signKey = sjcl.ecc.ecdsa.generateKeys(husher._CURVE);
-                self.pkey = strengthened.key; // The strengthened key used to encrypt the private El Gamal key
+                self.encryptionKey = sjcl.ecc.elGamal.generateKeys(husher._CURVE);
+                self.signingKey = sjcl.ecc.ecdsa.generateKeys(husher._CURVE);
+                self.keyGene = strengthened.key; // The strengthened key used to encrypt the private El Gamal key
                 self.skey = strengthened.key2; // The strengthened key used to encrypt the private ECDSA key
-                self.psalt = strengthened.salt;
+                self.scryptSalt = strengthened.salt;
                 self.pN = strengthened.N;
                 self.pr = strengthened.r;
                 self.pp = strengthened.p;
@@ -189,8 +189,8 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
         _legacyToJSON: function (email) {
             var encsec = JSON.parse(
                 sjcl.encrypt(
-                    this.pkey,
-                    husher._b64.fromBits(this.key.sec._exponent.toBits()),
+                    this.keyGene,
+                    husher._b64.fromBits(this.encryptionKey.sec._exponent.toBits()),
                     { iter: 1000,
                       ks: 256,
                       ts: 128,
@@ -199,9 +199,9 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
                       adata: email}
                 ));
             return {
-                pub: husher._b64.fromBits(this.key.pub._point.toBits()),
+                pub: husher._b64.fromBits(this.encryptionKey.pub._point.toBits()),
                 sec: {
-                    psalt: husher._b64.fromBits(this.psalt),
+                    scryptSalt: husher._b64.fromBits(this.scryptSalt),
                     pN: this.pN,
                     pr: this.pr,
                     pp: this.pp,
@@ -218,13 +218,13 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
                 self = this,
                 exp, strengthen;
             // Regenerate key from password
-            this.psalt = husher._b64.toBits(json.sec.psalt);
+            this.scryptSalt = husher._b64.toBits(json.sec.scryptSalt);
 
-            strengthen = husher._strengthenScrypt(passwd, {salt: this.psalt});
+            strengthen = husher._strengthenScrypt(passwd, {salt: this.scryptSalt});
 
             strengthen.done(function (strengthened) {
 
-                self.pkey = strengthened.key;
+                self.keyGene = strengthened.key;
                 json.sec = _.defaults(json.sec, {
                     iter: 1000,
                     ks: 256,
@@ -236,19 +236,19 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
                 try {
                     // Calculate the curve's exponent
                     exp = sjcl.bn.fromBits(husher._b64.toBits(sjcl.decrypt(
-                        self.pkey,
+                        self.keyGene,
                         JSON.stringify(json.sec)
                     )));
 
-                    self.key = {
+                    self.encryptionKey = {
                         sec: new sjcl.ecc.elGamal.secretKey(husher._CURVE, exp),
                         pub: husher.buildPublicKey(json.pub)
                     };
                     d.resolve();
                 } catch (e) {
-                    self.key = null;
-                    self.pkey = null;
-                    self.psalt = null;
+                    self.encryptionKey = null;
+                    self.keyGene = null;
+                    self.scryptSalt = null;
                     d.reject();
                 }
 
@@ -264,14 +264,14 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
                 aesOptions =  _.defaults({adata: email}, husher._versions['1']);
 
             // If we do not have a sign key use the legacy toJSON
-            if (!this.signKey) {
+            if (!this.signingKey) {
                 return this._legacyToJSON(email);
             }
 
             encryptedPrivate = JSON.parse(
                 sjcl.encrypt(
-                    this.pkey,
-                    husher._b64.fromBits(this.key.sec._exponent.toBits()),
+                    this.keyGene,
+                    husher._b64.fromBits(this.encryptionKey.sec._exponent.toBits()),
                     aesOptions
                 )
             );
@@ -279,20 +279,20 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
             encryptedSigningPrivate = JSON.parse(
                sjcl.encrypt(
                    this.skey,
-                   husher._b64.fromBits(this.signKey.sec._exponent.toBits()),
+                   husher._b64.fromBits(this.signingKey.sec._exponent.toBits()),
                    aesOptions
             ));
 
             return {
                 scrypt: {
-                    psalt: husher._b64.fromBits(this.psalt),
+                    scryptSalt: husher._b64.fromBits(this.scryptSalt),
                     pN: this.pN,
                     pr: this.pr,
                     pp: this.pp,
                 },
 
                 encKey: {
-                    pub: husher._b64.fromBits(this.key.pub._point.toBits()),
+                    pub: husher._b64.fromBits(this.encryptionKey.pub._point.toBits()),
                     sec: {
                         iv: encryptedPrivate.iv,
                         ct: encryptedPrivate.ct,
@@ -300,8 +300,8 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
                     }
                 },
 
-                signKey: {
-                    pub: husher._b64.fromBits(this.signKey.pub._point.toBits()),
+                signingKey: {
+                    pub: husher._b64.fromBits(this.signingKey.pub._point.toBits()),
                     sec: {
                         iv: encryptedSigningPrivate.iv,
                         ct: encryptedSigningPrivate.ct,
@@ -323,12 +323,12 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
             }
 
             // Regenerate key from password
-            this.psalt = husher._b64.toBits(json.scrypt.psalt);
+            this.scryptSalt = husher._b64.toBits(json.scrypt.scryptSalt);
 
-            husher._strengthenScrypt(passwd, {salt: this.psalt})
+            husher._strengthenScrypt(passwd, {salt: this.scryptSalt})
             .done(function (strengthened) {
 
-                self.pkey = strengthened.key;
+                self.keyGene = strengthened.key;
                 self.skey = strengthened.key2;
 
                 try {
@@ -338,37 +338,37 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
                     exp = sjcl.bn.fromBits(
                         husher._b64.toBits(
                             sjcl.decrypt(
-                                self.pkey,
+                                self.keyGene,
                                 JSON.stringify(data)
                             )
                         )
                     );
 
-                    self.key = {
+                    self.encryptionKey = {
                         sec: new sjcl.ecc.elGamal.secretKey(husher._CURVE, exp),
                         pub: husher.buildPublicKey(json.encKey.pub)
                     };
 
                     // Then decrypt the private signing key
-                    data = _.defaults(json.signKey.sec, husher._versions['1']);
+                    data = _.defaults(json.signingKey.sec, husher._versions['1']);
                     // Calculate the curve's exponent
                     exp = sjcl.bn.fromBits(husher._b64.toBits(sjcl.decrypt(
                         self.skey,
                         JSON.stringify(data)
                     )));
 
-                    self.signKey = {
+                    self.signingKey = {
                         sec: new sjcl.ecc.ecdsa.secretKey(husher._CURVE, exp),
-                        pub: husher.buildPublicKey(json.signKey.pub, 'ecdsa')
+                        pub: husher.buildPublicKey(json.signingKey.pub, 'ecdsa')
                     };
 
                     d.resolve();
 
                 } catch (e) {
                     console.log(e);
-                    self.key = null;
-                    self.pkey = null;
-                    self.psalt = null;
+                    self.encryptionKey = null;
+                    self.keyGene = null;
+                    self.scryptSalt = null;
                     d.reject();
                 }
             })
@@ -379,14 +379,14 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
 
         toSession: function () {
             return {
-                pub: husher._b64.fromBits(this.key.pub._point.toBits()),
-                sec: husher._b64.fromBits(this.key.sec._exponent.toBits())
+                pub: husher._b64.fromBits(this.encryptionKey.pub._point.toBits()),
+                sec: husher._b64.fromBits(this.encryptionKey.sec._exponent.toBits())
             };
         },
 
         fromSession: function (json) {
             var exp = sjcl.bn.fromBits(husher._b64.toBits(json.sec));
-            this.key = {
+            this.encryptionKey = {
                 sec: new sjcl.ecc.elGamal.secretKey(husher._CURVE, exp),
                 pub: husher.buildPublicKey(json.pub)
             };
