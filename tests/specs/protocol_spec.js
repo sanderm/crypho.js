@@ -108,8 +108,7 @@ define([
         });
 
         it('handles createGroupSpace', function () {
-            var members = ['foo', 'bar'], spaceid = 'foobar',
-                foo_p, bar_p;
+            var members = ['foo', 'bar'], spaceid = 'foobar';
 
             spyOn(connection, 'send').and.callFake(function(request) {
                 var keys;
@@ -143,7 +142,6 @@ define([
             var userid = 'qux', spaces = {'foo':'bar'};
 
             spyOn(connection, 'send').and.callFake(function(request) {
-                var node;
                 checkIQ(request, IQ_TYPES.GET);
                 node = getProtocolCommand('iq > spaces', request);
                 sendResponse(toResponse(request).c('spaces', {xmlns:NS_CRYPHO}).t(JSON.stringify(spaces)));

@@ -1,7 +1,7 @@
 define (['jquery', 'strophe'], function ($, Strophe) {
     Strophe.Bosh.prototype._processRequest = function (i) {};
-	return {
-		jquerify: function (builder) {
+    return {
+        jquerify: function (builder) {
             var xml = '';
             if (builder.tree) {
                 xml = Strophe.serialize(builder.tree());
@@ -26,17 +26,17 @@ define (['jquery', 'strophe'], function ($, Strophe) {
             c._dataRecv(this.createRequest(req));
         },
 
-		mockConnection: function (callback) {
-	        var c = new Strophe.Connection('');
+        mockConnection: function (callback) {
+            var c = new Strophe.Connection('');
             c.connect_callback = callback;
-	        c.authenticated = true;
-	        c.connected = true;
-	        c.jid = 'mocker@xmpp/r2';
-	        c._changeConnectStatus(Strophe.Status.CONNECTED);
-	        c.disconnect = function () {
-	            c._doDisconnect();
-	        };
-	        return c;
-	    }
-	};
+            c.authenticated = true;
+            c.connected = true;
+            c.jid = 'mocker@xmpp/r2';
+            c._changeConnectStatus(Strophe.Status.CONNECTED);
+            c.disconnect = function () {
+                c._doDisconnect();
+            };
+            return c;
+        }
+    };
 });

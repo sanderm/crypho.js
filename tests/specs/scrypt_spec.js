@@ -1,4 +1,5 @@
 define(['underscore', 'sjcl', 'crypho/scrypt'], function (_, sjcl, scrypt) {
+
     describe('Scrypt', function () {
 
         var tests = [
@@ -214,7 +215,5 @@ define(['underscore', 'sjcl', 'crypho/scrypt'], function (_, sjcl, scrypt) {
                 expect(sjcl.codec.hex.fromBits(key)).toEqual(test.expected);
             });
         });
-
-
     });
 });

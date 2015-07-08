@@ -1,7 +1,14 @@
 define(['crypho/husher', 'sjcl'], function (husher, sjcl) {
-    describe('Husher Crypto helper', function () {
 
-        husher.sweatshop.registerWorker('sjcl', 'sjcl.worker.js');
+    husher.sweatshop.registerWorker('sjcl', 'sjcl.worker.js');
+
+    describe('Husher Crypto helper', function () {
+        var h;
+
+        beforeAll(function(done){
+            h = new husher.Husher();
+            h.generate('secret').done(function(){done();});
+        });
 
         it('generates elGamal public/private keys of the NIST 384 family when calling _generateKeyPair()', function () {
             var kp = husher._generateKeyPair();
@@ -25,10 +32,6 @@ define(['crypho/husher', 'sjcl'], function (husher, sjcl) {
             var bits = sjcl.codec.base64.toBits(key);
             expect(bits.length).toEqual(8);
         });
-
-        // We will now generate and reuse a husher object
-        var h = new husher.Husher();
-        h.generate('secret');
 
         it('generates elGamal public/private keys of the NIST 384 family when calling generate()', function () {
             expect(h.key.pub instanceof sjcl.ecc.elGamal.publicKey).toBeTruthy();
