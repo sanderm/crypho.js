@@ -287,7 +287,7 @@ define([
                 if (node.tagName === 'spacekeys') {
                     parsed = JSON.parse(node.innerHTML);
                     for (var i in parsed) {
-                        var decrypted = globals.husher.decrypt(parsed[i], fooHusher.key.sec);
+                        var decrypted = globals.husher.decrypt(parsed[i], fooHusher.encryptionKey.sec);
                         expect(PUB_KEYS).toEqual(jasmine.arrayContaining([decrypted]));
                     }
                     sendResponse(toResponse(request));
@@ -312,7 +312,7 @@ define([
                 } else
                 if (node.tagName === 'spacekeys') {
                     parsed = JSON.parse(node.innerHTML);
-                    expect(globals.husher.decrypt(parsed.foo, fooHusher.key.sec)).toBeDefined();
+                    expect(globals.husher.decrypt(parsed.foo, fooHusher.encryptionKey.sec)).toBeDefined();
                     sendResponse(toResponse(request));
                 }
             });
@@ -346,7 +346,7 @@ define([
                 } else
                 if (node.tagName === 'spacekeys') {
                     parsed = JSON.parse(node.innerHTML);
-                    expect(globals.husher.decrypt(parsed.foo, fooHusher.key.sec)).toBeDefined();
+                    expect(globals.husher.decrypt(parsed.foo, fooHusher.encryptionKey.sec)).toBeDefined();
                     sendResponse(toResponse(request));
                 }
             });
