@@ -26,8 +26,9 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
         Husher: function (options) {
             this.encryptionKey = null;  // El Gamal ECC keypair
             this.signingKey = null;     // ECDSA keypair
-            this.keyGene = null;        // a key form which the AES keys that encrypt the private keys are generated
+            this.macKey = null;        // a key form which the AES keys that encrypt the private keys are generated
             this.scryptSalt = null;     // the salt used by the scrypt KDF
+            this.authHash = null;       // The hash derived from scrypt user for authentication.
             this.pN = null;             // scrypt N
             this.pr = null;             // scrypt r
             this.pp = null;             // scrypt p
@@ -174,8 +175,8 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
             husher._strengthenScrypt(password).done(function (strengthened) {
                 self.encryptionKey = sjcl.ecc.elGamal.generateKeys(husher._CURVE);
                 self.signingKey = sjcl.ecc.ecdsa.generateKeys(husher._CURVE);
-                self.keyGene = strengthened.key; // The strengthened key used to encrypt the private El Gamal key
-                self.skey = strengthened.key2; // The strengthened key used to encrypt the private ECDSA key
+                self.macKey = strengthened.key; // The strengthened key used to encrypt the private El Gamal key
+                self.authHash = sjcl.hash.sha256.hash(strengthened.key2); // The strengthened key used to encrypt the private ECDSA key
                 self.scryptSalt = strengthened.salt;
                 self.pN = strengthened.N;
                 self.pr = strengthened.r;
@@ -189,7 +190,7 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
         _legacyToJSON: function (email) {
             var encsec = JSON.parse(
                 sjcl.encrypt(
-                    this.keyGene,
+                    this.macKey,
                     husher._b64.fromBits(this.encryptionKey.sec._exponent.toBits()),
                     { iter: 1000,
                       ks: 256,
@@ -224,7 +225,7 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
 
             strengthen.done(function (strengthened) {
 
-                self.keyGene = strengthened.key;
+                self.macKey = strengthened.key;
                 json.sec = _.defaults(json.sec, {
                     iter: 1000,
                     ks: 256,
@@ -236,7 +237,7 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
                 try {
                     // Calculate the curve's exponent
                     exp = sjcl.bn.fromBits(husher._b64.toBits(sjcl.decrypt(
-                        self.keyGene,
+                        self.macKey,
                         JSON.stringify(json.sec)
                     )));
 
@@ -247,7 +248,7 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
                     d.resolve();
                 } catch (e) {
                     self.encryptionKey = null;
-                    self.keyGene = null;
+                    self.macKey = null;
                     self.scryptSalt = null;
                     d.reject();
                 }
@@ -259,18 +260,27 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
         },
 
         toJSON: function (email) {
-            var encryptedPrivate,
+            var aesOptions =  _.defaults({adata: email}, husher._versions['1']),
+                encryptedEncryptionPrivate,
                 encryptedSigningPrivate,
-                aesOptions =  _.defaults({adata: email}, husher._versions['1']);
+                encrKey, encrSalt,
+                signKey, signSalt,
+                mac;
 
             // If we do not have a sign key use the legacy toJSON
             if (!this.signingKey) {
                 return this._legacyToJSON(email);
             }
 
-            encryptedPrivate = JSON.parse(
+            mac = new sjcl.misc.hmac(this.macKey);
+            encrSalt = husher.randomKey();
+            signSalt = husher.randomKey();
+            encrKey = mac.mac(husher._b64.toBits(encrSalt));
+            signKey = mac.mac(husher._b64.toBits(signSalt));
+
+            encryptedEncryptionPrivate = JSON.parse(
                 sjcl.encrypt(
-                    this.keyGene,
+                    encrKey,
                     husher._b64.fromBits(this.encryptionKey.sec._exponent.toBits()),
                     aesOptions
                 )
@@ -278,7 +288,7 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
 
             encryptedSigningPrivate = JSON.parse(
                sjcl.encrypt(
-                   this.skey,
+                   signKey,
                    husher._b64.fromBits(this.signingKey.sec._exponent.toBits()),
                    aesOptions
             ));
@@ -292,15 +302,17 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
                 },
 
                 encKey: {
+                    macSalt: encrSalt,
                     pub: husher._b64.fromBits(this.encryptionKey.pub._point.toBits()),
                     sec: {
-                        iv: encryptedPrivate.iv,
-                        ct: encryptedPrivate.ct,
+                        iv: encryptedEncryptionPrivate.iv,
+                        ct: encryptedEncryptionPrivate.ct,
                         adata: email
                     }
                 },
 
                 signingKey: {
+                    macSalt: signSalt,
                     pub: husher._b64.fromBits(this.signingKey.pub._point.toBits()),
                     sec: {
                         iv: encryptedSigningPrivate.iv,
@@ -327,18 +339,23 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
 
             husher._strengthenScrypt(passwd, {salt: this.scryptSalt})
             .done(function (strengthened) {
-
-                self.keyGene = strengthened.key;
-                self.skey = strengthened.key2;
+                var mac, macSalt, encKey;
+                self.macKey = strengthened.key;
+                self.authHash = sjcl.hash.sha256.hash(strengthened.key2);
 
                 try {
+                    mac = new sjcl.misc.hmac(self.macKey);
+
                     // First decrypt the private encryption key
                     data = _.defaults(json.encKey.sec, husher._versions['1']);
+                    macSalt = json.encKey.macSalt;
+                    encKey = mac.mac(husher._b64.toBits(macSalt));
+
                     // Calculate the curve's exponent
                     exp = sjcl.bn.fromBits(
                         husher._b64.toBits(
                             sjcl.decrypt(
-                                self.keyGene,
+                                encKey,
                                 JSON.stringify(data)
                             )
                         )
@@ -351,9 +368,12 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
 
                     // Then decrypt the private signing key
                     data = _.defaults(json.signingKey.sec, husher._versions['1']);
+                    macSalt = json.signingKey.macSalt;
+                    encKey = mac.mac(husher._b64.toBits(macSalt));
+
                     // Calculate the curve's exponent
                     exp = sjcl.bn.fromBits(husher._b64.toBits(sjcl.decrypt(
-                        self.skey,
+                        encKey,
                         JSON.stringify(data)
                     )));
 
@@ -367,7 +387,7 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
                 } catch (e) {
                     console.log(e);
                     self.encryptionKey = null;
-                    self.keyGene = null;
+                    self.macKey = null;
                     self.scryptSalt = null;
                     d.reject();
                 }

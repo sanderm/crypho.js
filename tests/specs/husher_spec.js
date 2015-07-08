@@ -44,13 +44,13 @@ define(['crypho/husher', 'sjcl'], function (husher, sjcl) {
         });
 
         it('generates an 256 bit AES from the provided passphrase using scrypt when calling generate()', function (done) {
-            expect(h.keyGene.length).toEqual(8); // 8 words = 256 bit
-            expect(h.skey.length).toEqual(8); // 8 words = 256 bit
+            expect(h.macKey.length).toEqual(8); // 8 words = 256 bit
+            expect(h.authHash.length).toEqual(8); // 8 words = 256 bit
             expect(h.scryptSalt.length).toEqual(2); // 2 words = 64 bit
             husher._strengthenScrypt('secret', {salt: h.scryptSalt})
             .done(function (res) {
-                expect(res.key).toEqual(h.keyGene);
-                expect(res.key2).toEqual(h.skey);
+                expect(res.key).toEqual(h.macKey);
+                expect(sjcl.hash.sha256.hash(res.key2)).toEqual(h.authHash);
                 done();
             });
         });
