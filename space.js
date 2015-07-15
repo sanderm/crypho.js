@@ -115,7 +115,7 @@ define([
             if (participants.length === 0) {
                 return '';
             }
-            return participants.join(', ');
+            return _.sortBy(participants).join(', ');
         },
 
         shortTitle: function () {
@@ -127,7 +127,7 @@ define([
             }
             participants = _.first(participants, 3);
             display = _.map(participants, function (user) { return user.fullname(); });
-            display = display.join(', ');
+            display = _.sortBy(display).join(', ');
             return globals.transl('${display} and ${more} more', {display: display, more: more});
         },
 
