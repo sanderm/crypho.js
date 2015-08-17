@@ -29,6 +29,10 @@ require.config({
         strophe: {
             deps: ['jquery'],
             exports: 'Strophe'
+        },
+
+        'crypho/scrypt': {
+            deps: ['sjcl']
         }
     }
 });
