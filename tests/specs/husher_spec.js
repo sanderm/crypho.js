@@ -49,7 +49,7 @@ define(['crypho/husher', 'sjcl'], function (husher, sjcl) {
             expect(h.scryptSalt.length).toEqual(2); // 2 words = 64 bit
 
             // The scrypt salt should be generated from the email address
-            expect(h.scryptSalt).toEqual(husher._hash('foo@bar.com').slice(0,2));
+            expect(h.scryptSalt).toEqual(husher._hash('foo@bar.com-crypho.com').slice(0,2));
 
             husher._strengthenScrypt('secret', {salt: h.scryptSalt})
             .done(function (res) {

@@ -175,7 +175,7 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
                 scryptSalt;
 
             // Use an email-derived salt
-            scryptSalt = husher._hash(email).slice(0,2);
+            scryptSalt = husher._hash(email + '-crypho.com').slice(0,2);
 
             husher._strengthenScrypt(password, {salt: scryptSalt}).done(function (strengthened) {
                 self.encryptionKey = sjcl.ecc.elGamal.generateKeys(husher._CURVE);
