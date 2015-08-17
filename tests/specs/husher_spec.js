@@ -7,7 +7,7 @@ define(['crypho/husher', 'sjcl'], function (husher, sjcl) {
 
         beforeAll(function(done){
             h = new husher.Husher();
-            h.generate('secret').done(function(){done();});
+            h.generate('secret', 'foo@bar.com').done(function(){done();});
         });
 
         it('generates elGamal public/private keys of the NIST 384 family when calling _generateKeyPair()', function () {
@@ -47,6 +47,10 @@ define(['crypho/husher', 'sjcl'], function (husher, sjcl) {
             expect(h.macKey.length).toEqual(8); // 8 words = 256 bit
             expect(h.authHash.length).toEqual(8); // 8 words = 256 bit
             expect(h.scryptSalt.length).toEqual(2); // 2 words = 64 bit
+
+            // The scrypt salt should be generated from the email address
+            expect(h.scryptSalt).toEqual(husher._hash('foo@bar.com').slice(0,2));
+
             husher._strengthenScrypt('secret', {salt: h.scryptSalt})
             .done(function (res) {
                 expect(res.key).toEqual(h.macKey);
@@ -119,7 +123,7 @@ define(['crypho/husher', 'sjcl'], function (husher, sjcl) {
             spyOn(h, '_legacyToJSON').and.callThrough();
             spyOn(h2, '_legacyFromJSON').and.callThrough();
 
-            h.generate('secret').done(function () {
+            h.generate('secret', 'foo@bar.com').done(function () {
                 delete h.signingKey;
                 json = h.toJSON('foo@bar.com');
                 expect(h._legacyToJSON).toHaveBeenCalled();

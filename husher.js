@@ -27,7 +27,7 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
             this.encryptionKey = null;  // El Gamal ECC keypair
             this.signingKey = null;     // ECDSA keypair
             this.macKey = null;        // a key form which the AES keys that encrypt the private keys are generated
-            this.scryptSalt = null;     // the salt used by the scrypt KDF
+            this.scryptSalt = null;     // the salt used by the scrypt KDF, only applicable for version 1
             this.authHash = null;       // The hash derived from scrypt user for authentication.
             this.pN = null;             // scrypt N
             this.pr = null;             // scrypt r
@@ -169,10 +169,15 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
             }
         },
 
-        generate: function (password) {
+        generate: function (password, email) {
             var d = $.Deferred(),
-                self = this;
-            husher._strengthenScrypt(password).done(function (strengthened) {
+                self = this,
+                scryptSalt;
+
+            // Use an email-derived salt
+            scryptSalt = husher._hash(email).slice(0,2);
+
+            husher._strengthenScrypt(password, {salt: scryptSalt}).done(function (strengthened) {
                 self.encryptionKey = sjcl.ecc.elGamal.generateKeys(husher._CURVE);
                 self.signingKey = sjcl.ecc.ecdsa.generateKeys(husher._CURVE);
                 self.macKey = strengthened.key; // The strengthened key used to encrypt the private El Gamal key

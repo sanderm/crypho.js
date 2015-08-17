@@ -6,5 +6,5 @@
     "devel": true,
     "jquery": false,
     "jasmine": true,
-    "predef": ["define", "require", "__dirname", "cordova", "Keychain", "device", "plugins", "importScripts", "$pres", "Strophe", "$iq", "sjcl"]
+    "predef": ["define", "require", "__dirname", "cordova", "Keychain", "device", "plugins", "importScripts", "$pres", "Strophe", "$iq", "sjcl", "beforeAll"]
 }
