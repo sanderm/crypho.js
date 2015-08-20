@@ -310,6 +310,7 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
                     macSalt: encrSalt,
                     pub: husher._b64.fromBits(this.encryptionKey.pub._point.toBits()),
                     sec: {
+                        macSalt: encrSalt,
                         iv: encryptedEncryptionPrivate.iv,
                         ct: encryptedEncryptionPrivate.ct,
                         adata: email
@@ -317,14 +318,16 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
                 },
 
                 signingKey: {
-                    macSalt: signSalt,
                     pub: husher._b64.fromBits(this.signingKey.pub._point.toBits()),
                     sec: {
+                        macSalt: signSalt,
                         iv: encryptedSigningPrivate.iv,
                         ct: encryptedSigningPrivate.ct,
                         adata: email
                     }
                 },
+
+                authHash: this.authHash,
 
                 version: 2
             };
@@ -353,7 +356,7 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
 
                     // First decrypt the private encryption key
                     data = _.defaults(json.encKey.sec, husher._versions['1']);
-                    macSalt = json.encKey.macSalt;
+                    macSalt = json.encKey.sec.macSalt;
                     encKey = mac.mac(husher._b64.toBits(macSalt));
 
                     // Calculate the curve's exponent
@@ -373,7 +376,7 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
 
                     // Then decrypt the private signing key
                     data = _.defaults(json.signingKey.sec, husher._versions['1']);
-                    macSalt = json.signingKey.macSalt;
+                    macSalt = json.signingKey.sec.macSalt;
                     encKey = mac.mac(husher._b64.toBits(macSalt));
 
                     // Calculate the curve's exponent
