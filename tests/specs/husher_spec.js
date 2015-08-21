@@ -109,7 +109,6 @@ define(['crypho/husher', 'sjcl'], function (husher, sjcl) {
                 expect(h2.verify('foo', res)).toBeTruthy();
                 res = h2.sign('foo');
                 expect(h.verify('foo', res)).toBeTruthy();
-                expect(h.authHash).toEqual(husher._b64.toBits(json.authHash));
                 done();
             });
         });

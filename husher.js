@@ -297,7 +297,6 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
                    husher._b64.fromBits(this.signingKey.sec._exponent.toBits()),
                    aesOptions
             ));
-            debugger;
 
             return {
                 scrypt: {
@@ -327,8 +326,6 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
                         adata: email
                     }
                 },
-
-                authHash: husher._b64.fromBits(this.authHash),
 
                 version: 2
             };
