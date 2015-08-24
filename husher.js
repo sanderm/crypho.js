@@ -269,7 +269,7 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
                 encryptedEncryptionPrivate,
                 encryptedSigningPrivate,
                 encrKey, encrSalt,
-                signKey, signSalt,
+                signingKey, signSalt,
                 mac;
 
             // If we do not have a sign key use the legacy toJSON
@@ -281,7 +281,7 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
             encrSalt = husher.randomKey();
             signSalt = husher.randomKey();
             encrKey = mac.mac(husher._b64.toBits(encrSalt));
-            signKey = mac.mac(husher._b64.toBits(signSalt));
+            signingKey = mac.mac(husher._b64.toBits(signSalt));
 
             encryptedEncryptionPrivate = JSON.parse(
                 sjcl.encrypt(
@@ -293,7 +293,7 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
 
             encryptedSigningPrivate = JSON.parse(
                sjcl.encrypt(
-                   signKey,
+                   signingKey,
                    husher._b64.fromBits(this.signingKey.sec._exponent.toBits()),
                    aesOptions
             ));
@@ -405,17 +405,34 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
 
         toSession: function () {
             return {
-                pub: husher._b64.fromBits(this.encryptionKey.pub._point.toBits()),
-                sec: husher._b64.fromBits(this.encryptionKey.sec._exponent.toBits())
+                encryptionKey: {
+                    pub: husher._b64.fromBits(this.encryptionKey.pub._point.toBits()),
+                    sec: husher._b64.fromBits(this.encryptionKey.sec._exponent.toBits())
+                },
+
+                signingKey: {
+                    pub: husher._b64.fromBits(this.signingKey.pub._point.toBits()),
+                    sec: husher._b64.fromBits(this.signingKey.sec._exponent.toBits())
+                },
+
+                authHash: this.authHash
             };
         },
 
         fromSession: function (json) {
-            var exp = sjcl.bn.fromBits(husher._b64.toBits(json.sec));
+            var exp = sjcl.bn.fromBits(husher._b64.toBits(json.encryptionKey.sec));
             this.encryptionKey = {
                 sec: new sjcl.ecc.elGamal.secretKey(husher._CURVE, exp),
-                pub: husher.buildPublicKey(json.pub)
+                pub: husher.buildPublicKey(json.encryptionKey.pub)
             };
+
+            exp = sjcl.bn.fromBits(husher._b64.toBits(json.signingKey.sec));
+            this.signingKey = {
+                sec: new sjcl.ecc.ecdsa.secretKey(husher._CURVE, exp),
+                pub: husher.buildPublicKey(json.signingKey.pub, 'ecdsa')
+            };
+
+            this.authHash = json.authHash;
         }
     };
 

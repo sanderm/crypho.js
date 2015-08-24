@@ -113,7 +113,7 @@ define(['crypho/husher', 'sjcl'], function (husher, sjcl) {
             });
         });
 
-        it('will use the legacy version when appropriate', function (done) {
+        it('will use the legacy JSON formatter when appropriate', function (done) {
 
             var h = new husher.Husher(),
                 h2 = new husher.Husher(),
@@ -132,6 +132,17 @@ define(['crypho/husher', 'sjcl'], function (husher, sjcl) {
                 });
             });
 
+        });
+
+        it('can save and load a session in JSON format', function () {
+            var session = h.toSession();
+            var h2 = new husher.Husher();
+            var ct = h.encrypt('foo');
+            var sig = h.sign('foo');
+            h2.fromSession(session);
+            expect(h2.decrypt(ct)).toEqual('foo');
+            expect(h2.verify('foo', sig)).toBeTruthy();
+            expect(h2.authHash).toEqual(h.authHash);
         });
 
     });
