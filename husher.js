@@ -181,7 +181,7 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
                 self.encryptionKey = sjcl.ecc.elGamal.generateKeys(husher._CURVE);
                 self.signingKey = sjcl.ecc.ecdsa.generateKeys(husher._CURVE);
                 self.macKey = strengthened.key; // The strengthened key used to encrypt the private El Gamal key
-                self.authHash = sjcl.hash.sha256.hash(strengthened.key2); // The strengthened key used to encrypt the private ECDSA key
+                self.authHash = husher._hash(strengthened.key2); // The strengthened key used to encrypt the private ECDSA key
                 self.scryptSalt = strengthened.salt;
                 self.pN = strengthened.N;
                 self.pr = strengthened.r;
@@ -326,6 +326,8 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
                         adata: email
                     }
                 },
+
+                authHash: husher._b64.fromBits(this.authHash),
 
                 version: 2
             };
