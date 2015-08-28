@@ -26,9 +26,9 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
         Husher: function (options) {
             this.encryptionKey = null;  // El Gamal ECC keypair
             this.signingKey = null;     // ECDSA keypair
-            this.macKey = null;        // a key form which the AES keys that encrypt the private keys are generated
+            this.macKey = null;         // a key form which the AES keys that encrypt the private keys are generated
+            this.authKey = null;        // the key used (hashed) for authentication
             this.scryptSalt = null;     // the salt used by the scrypt KDF, only applicable for version 1
-            this.authHash = null;       // The hash derived from scrypt user for authentication.
             this.pN = null;             // scrypt N
             this.pr = null;             // scrypt r
             this.pp = null;             // scrypt p
@@ -169,6 +169,10 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
             }
         },
 
+        authHash: function () {
+            return husher._hash(this.authKey || '');
+        },
+
         generate: function (password, email) {
             var d = $.Deferred(),
                 self = this,
@@ -180,8 +184,8 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
             husher._strengthenScrypt(password, {salt: scryptSalt}).done(function (strengthened) {
                 self.encryptionKey = sjcl.ecc.elGamal.generateKeys(husher._CURVE);
                 self.signingKey = sjcl.ecc.ecdsa.generateKeys(husher._CURVE);
-                self.macKey = strengthened.key; // The strengthened key used to encrypt the private El Gamal key
-                self.authHash = husher._hash(strengthened.key2); // The strengthened key used to encrypt the private ECDSA key
+                self.macKey = strengthened.key;     // The strengthened key used to encrypt the private El Gamal keys
+                self.authKey = strengthened.key2;   // The strengthened key used (hashed) for authentication
                 self.scryptSalt = strengthened.salt;
                 self.pN = strengthened.N;
                 self.pr = strengthened.r;
@@ -327,7 +331,7 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
                     }
                 },
 
-                authHash: husher._b64.fromBits(this.authHash),
+                authHash: this.authHash(),
 
                 version: 2
             };
@@ -349,7 +353,7 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
             .done(function (strengthened) {
                 var mac, macSalt, encKey;
                 self.macKey = strengthened.key;
-                self.authHash = sjcl.hash.sha256.hash(strengthened.key2);
+                self.authKey = strengthened.key2;
 
                 try {
                     mac = new sjcl.misc.hmac(self.macKey);
@@ -417,7 +421,7 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
                     sec: husher._b64.fromBits(this.signingKey.sec._exponent.toBits())
                 },
 
-                authHash: this.authHash
+                authKey: this.authKey
             };
         },
 
@@ -434,7 +438,7 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
                 pub: husher.buildPublicKey(json.signingKey.pub, 'ecdsa')
             };
 
-            this.authHash = json.authHash;
+            this.authKey = json.authKey;
         }
     };
 

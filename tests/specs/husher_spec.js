@@ -43,9 +43,9 @@ define(['crypho/husher', 'sjcl'], function (husher, sjcl) {
             expect(h.encryptionKey.sec._curve).toEqual(sjcl.ecc.curves.c384);
         });
 
-        it('generates an 256 bit AES from the provided passphrase using scrypt when calling generate()', function (done) {
+        it('generates a 256 bit AES from the provided passphrase using scrypt when calling generate()', function (done) {
             expect(h.macKey.length).toEqual(8); // 8 words = 256 bit
-            expect(h.authHash.length).toEqual(8); // 8 words = 256 bit
+            expect(h.authKey.length).toEqual(8); // 8 words = 256 bit
             expect(h.scryptSalt.length).toEqual(2); // 2 words = 64 bit
 
             // The scrypt salt should be generated from the email address
@@ -54,7 +54,8 @@ define(['crypho/husher', 'sjcl'], function (husher, sjcl) {
             husher._strengthenScrypt('secret', {salt: h.scryptSalt})
             .done(function (res) {
                 expect(res.key).toEqual(h.macKey);
-                expect(sjcl.hash.sha256.hash(res.key2)).toEqual(h.authHash);
+                expect(res.key2).toEqual(h.authKey);
+                expect(sjcl.hash.sha256.hash(res.key2)).toEqual(h.authHash());
                 done();
             });
         });
