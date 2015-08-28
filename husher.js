@@ -180,6 +180,8 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
                 self = this,
                 scryptSalt;
 
+            email = email.trim().toLowerCase();
+
             // Use an email-derived salt
             scryptSalt = husher._hash(email + '-crypho.com').slice(0,2);
 
@@ -199,6 +201,7 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
 
         // toJSON from the time when we did not have a sign key.
         _legacyToJSON: function (email) {
+            email = email.trim().toLowerCase();
             var encsec = JSON.parse(
                 sjcl.encrypt(
                     this.macKey,
@@ -271,12 +274,15 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
         },
 
         toJSON: function (email) {
-            var aesOptions =  _.defaults({adata: email}, husher._versions['1']),
+            var aesOptions,
                 encryptedEncryptionPrivate,
                 encryptedSigningPrivate,
                 encrKey, encrSalt,
                 signingKey, signSalt,
                 mac;
+
+            email = email.trim().toLowerCase();
+            aesOptions =  _.defaults({adata: email}, husher._versions['1']);
 
             // If we do not have a sign key use the legacy toJSON
             if (!this.signingKey) {
