@@ -46,10 +46,12 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
             return sjcl.ecc.ecdsa.generateKeys(husher._CURVE);
         },
 
-        _strengthenScrypt: function (passwd, options) {
+        // Memoize scrypt so that if we request again the same thing we don't spend time on it.
+        _strengthenScrypt: _.memoize(function (passwd, options) {
             var d = $.Deferred();
             options = options || {};
             options = _.extend({N: 16384, r: 8, p: 1, dkLen: 64, salt: husher._getRandomWords(2)}, options);
+
             this.sweatshop.queue('sjcl', 'scrypt', [passwd, options])
                 .done(function (key) {
                     options.key = key.splice(0,8);
@@ -58,7 +60,7 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
                 })
                 .fail(d.reject);
             return d.promise();
-        },
+        }),
 
         randomKey: function () {
             // 8 words, for a 256 bit key.
