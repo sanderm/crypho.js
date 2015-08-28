@@ -172,7 +172,7 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
         },
 
         authHash: function () {
-            return husher._hash(this.authKey || '');
+            return husher._b64.fromBits(husher._hash(this.authKey || ''));
         },
 
         generate: function (password, email) {

@@ -55,7 +55,7 @@ define(['crypho/husher', 'sjcl'], function (husher, sjcl) {
             .done(function (res) {
                 expect(res.key).toEqual(h.macKey);
                 expect(res.key2).toEqual(h.authKey);
-                expect(sjcl.hash.sha256.hash(res.key2)).toEqual(h.authHash());
+                expect(sjcl.codec.base64.fromBits(sjcl.hash.sha256.hash(res.key2))).toEqual(h.authHash());
                 done();
             });
         });
