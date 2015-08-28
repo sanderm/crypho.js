@@ -47,6 +47,7 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
         },
 
         // Memoize scrypt so that if we request again the same thing we don't spend time on it.
+        // We also provide a hasher for the memoize as by default underscore uses only the first argument.
         _strengthenScrypt: _.memoize(function (passwd, options) {
             var d = $.Deferred();
             options = options || {};
@@ -60,6 +61,8 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
                 })
                 .fail(d.reject);
             return d.promise();
+        }, function (passwd, options) {     // The memoize hasher
+            return husher._b64.fromBits(husher._hash(passwd + JSON.stringify(options)));
         }),
 
         randomKey: function () {
