@@ -81,15 +81,6 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
             return new sjcl.ecc.elGamal.publicKey(husher._CURVE, husher._b64.toBits(key));
         },
 
-        randomize: function () {
-            var p = $.getJSON('/random');
-            p.done(function (rndarr) {
-                var ab = new Uint32Array(32);
-                ab.set(rndarr);
-                sjcl.random.addEntropy(ab, 1024, "crypho.com");
-            });
-        },
-
         progress: function () {
             return sjcl.random.getProgress();
         },
