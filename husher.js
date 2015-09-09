@@ -193,6 +193,17 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
             return d.promise();
         },
 
+        // Return the user's public fingerprint, which is derived by hashing together the two public keys,
+        // then using the first 16 hexadecimal characters.
+        fingerprint: function () {
+            var encryptionPublic = this.encryptionKey.pub._point.toBits(),
+                signingPublic = this.signingKey.pub._point.toBits(),
+                hash;
+            hash = husher._hash(encryptionPublic.concat(signingPublic));
+            hash = husher._hex.fromBits(hash);
+            return hash.slice(0,16);
+        },
+
         // toJSON from the time when we did not have a sign key.
         _legacyToJSON: function (email) {
             email = email.trim().toLowerCase();

@@ -79,6 +79,17 @@ define(['crypho/husher', 'sjcl'], function (husher, sjcl) {
             expect(h.verify('foo', sig)).toBeTruthy();
         });
 
+        it('calculates the correct fingerprint of the keys', function (done) {
+            var h2 = new husher.Husher(),
+                json = '{"scrypt":{"scryptSalt":"MUkhdycPtis=","pN":16384,"pr":8,"pp":1},"encKey":{"macSalt":"OiuQ/DD/kc1/Oz89wcd+CIk+bzMHpnRbrwK3DPixF8s=","pub":"VpaLnle5yBAaWKUPIf6j4uBGkh6Yc3xpHwgptuFkEjvXkWlsS9b7epZRNK4PC9dWStvdHKbM7BjeVb5UsTtK1OuAJKlJk/HO14Cv7BKST60e6FJAsK59s4ELa6PWLwLb","sec":{"macSalt":"OiuQ/DD/kc1/Oz89wcd+CIk+bzMHpnRbrwK3DPixF8s=","iv":"Mv8i3RShJbObmB6y6Lnd7Q==","ct":"fJw28td7y+RtxJrWUdalXSIfoXOMr04EIbEocN45AuieGdvHWjEDX4pFnir5k3ZLHcYNhudeZsGFHR8jXgEgsVGfLhI2/INp9uOfyQwMI2o=","adata":"foo@bar.com"}},"signingKey":{"pub":"VfBxd8akQWuqhbL/qbXiGuPy5ku5mOtVmcGwngS4UXWAwjxeYBWopuCPWhTWM+doZDy4xtyUzkaR07l5USGwQBPElLpONKC1+IRdmz+dzRjLBd4Iqrwgk3biNq5viakK","sec":{"macSalt":"BED1rretn06sq9k4qThzw9tY0nemyPtf+b+mD+gTbYg=","iv":"tWG9Wr3kx182hIgWOMIIvg==","ct":"sjPmo3EF93DH7sytqXZhJMw6PpiODImfVccZodRxHblMENBmRZm6qX4hkkgAfF1kP8F1TqXGoENbT/LlOIdKPc9rD9FE6fMCVBc6bvkbjSM=","adata":"foo@bar.com"}},"authHash":"d+XnaY7zS3ytE46kOdUDnvb1gVWFz1IAR1lAeVyRgjg=","version":2}';
+            h2.fromJSON('secret', JSON.parse(json))
+            .done(function () {
+                expect(h2.fingerprint()).toEqual('b06471af0d257f29');
+                done();
+            });
+
+        });
+
         it('can serialize the cryptosystem to JSON and back with the legacy JSON formatter', function (done) {
             var h2, json, res;
             json = h._legacyToJSON('foo@bar.com');
