@@ -155,11 +155,12 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
             return husher._b64.fromBits(this.signingKey.sec.sign(hash));
         },
 
-        verify: function (data, signature) {
+        verify: function (data, signature, publicKey) {
             var hash = husher._hash(data);
             signature = husher._b64.toBits(signature);
+            publicKey = publicKey || this.signingKey.pub
             try {
-                return this.signingKey.pub.verify(hash, signature);
+                return publicKey.verify(hash, signature);
             } catch (e) {
                 return false;
             }

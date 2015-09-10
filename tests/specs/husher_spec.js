@@ -77,7 +77,10 @@ define(['crypho/husher', 'sjcl'], function (husher, sjcl) {
         it('can sign/verify using ECDSA Public-Private cryptosystem', function () {
             var sig = h.sign('foo');
             expect(h.verify('foo', sig)).toBeTruthy();
+            var h2 = new husher.Husher();
+            expect(h2.verify('foo', sig, h.signingKey.pub)).toBeTruthy();
         });
+
 
         it('calculates the correct fingerprint of the keys', function (done) {
             var h2 = new husher.Husher(),
