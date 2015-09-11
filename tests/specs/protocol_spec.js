@@ -14,7 +14,7 @@ define([
     jasmine.DEFAULT_TIMEOUT_INTERVAL = 10000;
 
     describe('Crypho Protocol Tests', function () {
-        var userID = 'qux', password = 'quxpass', email = 'qux@me.com',
+        var userID = 'qux', password = 'quxpass', email = 'qux@foobarqux.com',
             fooHusher, barHusher,
             connection, successHandler, errorHandler,
             response, node, parsed, PUB_KEYS;
@@ -49,9 +49,9 @@ define([
             fooHusher = new husher.Husher();
             barHusher = new husher.Husher();
 
-            gh_p = globals.husher.generate(password);
-            fh_p =  fooHusher.generate('foopass');
-            bh_p =  barHusher.generate('barpass');
+            gh_p = globals.husher.generate(password, email);
+            fh_p =  fooHusher.generate('foopass', 'foo@foobarqux.com');
+            bh_p =  barHusher.generate('barpass', 'bar@foobarqux.com');
 
             $.when(gh_p, fh_p, bh_p).done(function(){done();});
         });
@@ -120,8 +120,8 @@ define([
                     expect(parsed.members).toBeDefined();
                     expect(parsed.members).toEqual(members);
                     keys = {
-                        'foo' : fooHusher.toSession().pub,
-                        'bar' : barHusher.toSession().pub,
+                        'foo' : fooHusher.toSession().encryptionKey.pub,
+                        'bar' : barHusher.toSession().encryptionKey.pub,
                     };
                     sendResponse(toResponse(request).c('keys', {xmlns:NS_CRYPHO}).t(JSON.stringify(keys)));
                 } else
@@ -242,7 +242,7 @@ define([
                     expect (node.innerHTML).toEqual(invitationid);
                     res = toResponse(request).c('invitor', {xmlns:NS_CRYPHO});
                     res.c('uid').t(fooid).up();
-                    res.c('pubkey').t(fooHusher.toSession().pub);
+                    res.c('pubkey').t(fooHusher.toSession().encryptionKey.pub);
                     sendResponse(res);
                 } else
                 if (node.tagName === 'spacekeys') {
@@ -282,7 +282,7 @@ define([
                 if (node.tagName === 'addmember' ) {
                     expect ($(node).attr('spaceid')).toEqual(spaceid);
                     expect ($(node).attr('memberid')).toEqual(memberid);
-                    sendResponse(toResponse(request).c('key', {xmlns:NS_CRYPHO}).t(fooHusher.toSession().pub));
+                    sendResponse(toResponse(request).c('key', {xmlns:NS_CRYPHO}).t(fooHusher.toSession().encryptionKey.pub));
                 } else
                 if (node.tagName === 'spacekeys') {
                     parsed = JSON.parse(node.innerHTML);
@@ -307,7 +307,7 @@ define([
                     expect ($(node).attr('spaceid')).toEqual(spaceid);
                     expect ($(node).attr('memberid')).toEqual(memberid);
 
-                    var spacekeys = {'foo': fooHusher.toSession().pub};
+                    var spacekeys = {'foo': fooHusher.toSession().encryptionKey.pub};
                     sendResponse(toResponse(request).c('keys', {xmlns:NS_CRYPHO}).t(JSON.stringify(spacekeys)));
                 } else
                 if (node.tagName === 'spacekeys') {
@@ -341,7 +341,7 @@ define([
                 node = getProtocolCommand(['iq > addspacekey', 'iq > spacekeys'], request);
                 if (node.tagName === 'addspacekey' ) {
                     expect ($(node).attr('spaceid')).toEqual(spaceid);
-                    var spacekeys = {'foo': fooHusher.toSession().pub};
+                    var spacekeys = {'foo': fooHusher.toSession().encryptionKey.pub};
                     sendResponse(toResponse(request).c('keys', {xmlns:NS_CRYPHO}).t(JSON.stringify(spacekeys)));
                 } else
                 if (node.tagName === 'spacekeys') {
