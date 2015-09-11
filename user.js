@@ -22,7 +22,8 @@ define([
             groups: [],
             vCard:  {},
             jids: [],
-            away: {}
+            away: {},
+            trusted: null
         },
 
         fetch: function(options) {
@@ -135,10 +136,10 @@ define([
 
             var d = $.Deferred(),
                 self = this,
-                roster_promise = XMPP.connection.roster.get(),
+                rosterPromise = XMPP.connection.roster.get(),
                 user_promises = [];
 
-            roster_promise.done(function (roster) {
+            rosterPromise.done(function (roster) {
                 var jid, user, bare;
 
                 for (jid in roster) {
@@ -162,8 +163,18 @@ define([
                     d.reject();
                 });
 
+                // Set trust levels
+                XMPP.connection.Crypho.getTrustedUsers()
+                .done(function (trusted) {
+                    _.each(trusted, function (signature, userID) {
+                        jid = userID + '@' +XMPP.connection.domain;
+                        user = self.get(jid);
+                        user.set({trusted: signature});
+                    });
+                });
+
             });
-            roster_promise.fail(d.reject);
+            rosterPromise.fail(d.reject);
             return d.promise();
         },
 

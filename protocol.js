@@ -330,6 +330,15 @@ define([
 
         },
 
+        getTrustedUsers: function () {
+            var d = $.Deferred(),
+                iq = this._createIQ('trusted', {type: 'get'});
+            this._connection.sendIQ(iq.tree(), function (trusted) {
+                d.resolve(JSON.parse($('trusted', trusted).text()));
+            }, d.reject);
+            return d.promise();
+        },
+
         getUpdates: function (data) {
             var d = $.Deferred(),iq;
             iq = this._createIQ('updates', {type: 'get'});
