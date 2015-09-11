@@ -79,6 +79,14 @@ define([
             }
         },
 
+        publicKeys: function () {
+            var vCard = this.get('vCard');
+            return {
+                encryption: vCard.KEYS.ENCRYPTIONPUB,
+                signing: vCard.KEYS.SIGNINGPUB
+            };
+        },
+
         isOnline: function () {
             return this.get('jids').length ? true : false;
         },

@@ -339,6 +339,14 @@ define([
             return d.promise();
         },
 
+        trustUser: function (uid, signature) {
+            var d = $.Deferred(),
+                iq = this._createIQ('trust')
+                .t(JSON.stringify({uid: uid, signature: signature}));
+            this._connection.sendIQ(iq.tree(), d.resolve, d.reject);
+            return d.promise();
+        },
+
         getUpdates: function (data) {
             var d = $.Deferred(),iq;
             iq = this._createIQ('updates', {type: 'get'});
