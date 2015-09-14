@@ -6,7 +6,8 @@ define([
     'XMPP',
     'burry',
     'globals',
-    ], function ($, _, Backbone, Strophe, XMPP, Burry, globals) {
+    'crypho/husher'
+    ], function ($, _, Backbone, Strophe, XMPP, Burry, globals, husher) {
 
     var User = {};
 
@@ -81,10 +82,21 @@ define([
 
         publicKeys: function () {
             var vCard = this.get('vCard');
+            if (!vCard.KEYS || !(vCard.KEYS.ENCRYPTIONPUB && vCard.KEYS.SIGNINGPUB)) {
+                return null;
+            }
             return {
                 encryption: vCard.KEYS.ENCRYPTIONPUB,
                 signing: vCard.KEYS.SIGNINGPUB
             };
+        },
+
+        fingerprint: function () {
+            var publicKeys = this.publicKeys();
+            if (!publicKeys) return null;
+            return husher._hash(
+                husher._b64.toBits(publicKeys.encryption).concat(husher._b64.toBits(publicKeys.signing))
+            );
         },
 
         isOnline: function () {

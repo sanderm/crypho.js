@@ -198,11 +198,8 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
         // then using the first 16 hexadecimal characters.
         fingerprint: function () {
             var encryptionPublic = this.encryptionKey.pub._point.toBits(),
-                signingPublic = this.signingKey.pub._point.toBits(),
-                hash;
-            hash = husher._hash(encryptionPublic.concat(signingPublic));
-            hash = husher._hex.fromBits(hash);
-            return hash.slice(0,16);
+                signingPublic = this.signingKey.pub._point.toBits();
+            return husher._hash(encryptionPublic.concat(signingPublic));
         },
 
         // toJSON from the time when we did not have a sign key.
