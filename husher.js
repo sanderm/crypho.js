@@ -158,7 +158,7 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
         verify: function (data, signature, publicKey) {
             var hash = husher._hash(data);
             signature = husher._b64.toBits(signature);
-            publicKey = publicKey || this.signingKey.pub
+            publicKey = publicKey || this.signingKey.pub;
             try {
                 return publicKey.verify(hash, signature);
             } catch (e) {
@@ -200,6 +200,17 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
             var encryptionPublic = this.encryptionKey.pub._point.toBits(),
                 signingPublic = this.signingKey.pub._point.toBits();
             return husher._hash(encryptionPublic.concat(signingPublic));
+        },
+
+        generateKeyAndEncryptToPublicKeys: function (userPublicKeys) {
+            var key = husher.randomKey(),
+                keys = {};
+            _.each(userPublicKeys, function (pKey, userid) {
+                if (!(pKey instanceof sjcl.ecc.elGamal.publicKey))
+                    pKey = husher.buildPublicKey(pKey);
+                keys[userid] = this.encrypt(key, pKey);
+            }, this);
+            return {keys: keys, signature: this.sign(key)};
         },
 
         // toJSON from the time when we did not have a sign key.

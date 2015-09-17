@@ -93,6 +93,25 @@ define(['crypho/husher', 'sjcl'], function (husher, sjcl) {
 
         });
 
+        it('generates a new key, signs and encrypts it using the public keys of a set of users', function () {
+            var keypairs = {
+                    foo: sjcl.ecc.elGamal.generateKeys(husher._CURVE),
+                    bar: sjcl.ecc.elGamal.generateKeys(husher._CURVE)
+                },
+                 pubKeys = {
+                    foo: keypairs.foo.pub,
+                    bar: keypairs.bar.pub
+                }, result, key;
+
+            result = h.generateKeyAndEncryptToPublicKeys(pubKeys);
+            // Verify both foo and bar can decrypt and obtain the same random key
+            expect(h.decrypt(result.keys.foo, keypairs.foo.sec)).toEqual(h.decrypt(result.keys.bar, keypairs.bar.sec));
+
+            // Verify the signature of the key
+            key = h.decrypt(result.keys.foo, keypairs.foo.sec);
+            expect(h.verify(key, result.signature, h.signingKey.pub)).toBeTruthy();
+        });
+
         it('can serialize the cryptosystem to JSON and back with the legacy JSON formatter', function (done) {
             var h2, json, res;
             json = h._legacyToJSON('foo@bar.com');
