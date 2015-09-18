@@ -72,7 +72,7 @@ define([
                 pubKeys = JSON.parse($('keys', response).text());
                 pubKeys[globals.me.userID()] = globals.husher.encryptionKey.pub;
                 keys = globals.husher.generateKeyAndEncryptToPublicKeys(pubKeys);
-                iq = self._createIQ('spacekeys', {id: $(response).attr('id')})
+                iq = self._createIQ('spacekeys', {id: $(response).attr('id')}, {signature: keys.signature})
                     .t(JSON.stringify(keys.keys));
                 self._connection.sendIQ(iq.tree(),
                     function (response) {
@@ -171,7 +171,7 @@ define([
                     publicKeys[invitor_id] = $('pubkey', response).text();
                     publicKeys[globals.me.userID()] = globals.husher.encryptionKey.pub;
                     keys = globals.husher.generateKeyAndEncryptToPublicKeys(publicKeys);
-                    iq = self._createIQ('spacekeys', {id: $(response).attr('id')})
+                    iq = self._createIQ('spacekeys', {id: $(response).attr('id')}, {signature: keys.signature})
                         .t(JSON.stringify(keys.keys));
 
                     self._connection.sendIQ(iq.tree(),
@@ -230,7 +230,7 @@ define([
                     keys = globals.husher.generateKeyAndEncryptToPublicKeys(publicKeys);
 
                     // Send response and resolve
-                    iq = self._createIQ('spacekeys', {id: $(response).attr('id')})
+                    iq = self._createIQ('spacekeys', {id: $(response).attr('id')}, {signature: keys.signature})
                         .t(JSON.stringify(keys.keys));
 
                     self._connection.sendIQ(iq.tree(), d.resolve, d.reject);
@@ -258,7 +258,7 @@ define([
                     keys = globals.husher.generateKeyAndEncryptToPublicKeys(publicKeys);
 
                     // Send response and resolve
-                    iq = self._createIQ('spacekeys', {id: $(response).attr('id')})
+                    iq = self._createIQ('spacekeys', {id: $(response).attr('id')}, {signature: keys.signature})
                         .t(JSON.stringify(keys.keys));
 
                     self._connection.sendIQ(iq.tree(), d.resolve, d.reject);
