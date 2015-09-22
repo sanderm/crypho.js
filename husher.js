@@ -159,6 +159,9 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
             var hash = husher._hash(data);
             signature = husher._b64.toBits(signature);
             publicKey = publicKey || this.signingKey.pub;
+            if (_.isString(publicKey)) {
+                publicKey = husher.buildPublicKey(publicKey, 'ecdsa');
+            }
             try {
                 return publicKey.verify(hash, signature);
             } catch (e) {
