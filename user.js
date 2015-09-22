@@ -24,7 +24,7 @@ define([
             vCard:  {},
             jids: [],
             away: {},
-            trusted: null
+            verified: null
         },
 
         fetch: function(options) {
@@ -176,12 +176,12 @@ define([
 
                 // Set trust levels
                 user_promises.push(
-                    XMPP.connection.Crypho.getTrustedUsers()
-                    .done(function (trusted) {
-                        _.each(trusted, function (signature, userID) {
+                    XMPP.connection.Crypho.getVerifiedUsers()
+                    .done(function (verified) {
+                        _.each(verified, function (signature, userID) {
                             jid = userID + '@' +XMPP.connection.domain;
                             user = self.get(jid);
-                            user.set({trusted: signature});
+                            user.set({verified: signature});
                         });
                     })
                 );

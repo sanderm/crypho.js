@@ -89,11 +89,11 @@ define([
 
                 // Check the key signature verifies.
                 if (globals.husher.verify(key.key, signing.signature, signer.publicKeys().signing)) {
-                    // If the key issuer is the user herself or if she is signed and trusted, return 'full' verification
+                    // If the key issuer is the user herself or if she is signed and verified, return 'full' verification
                     if (signer === globals.me) {
                         return 'full';
                     }
-                    if (signer.get('trusted') && globals.husher.verify(signer.fingerprint(), signer.get('trusted'))) {
+                    if (signer.get('verified') && globals.husher.verify(signer.fingerprint(), signer.get('verified'))) {
                         return 'full';
                     }
                     // Return 'keyOnly' verification when the key is verified but not the user

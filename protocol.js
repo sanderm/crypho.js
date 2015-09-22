@@ -307,16 +307,16 @@ define([
 
         },
 
-        getTrustedUsers: function () {
+        getVerifiedUsers: function () {
             var d = $.Deferred(),
-                iq = this._createIQ('trusted', {type: 'get'});
-            this._connection.sendIQ(iq.tree(), function (trusted) {
-                d.resolve(JSON.parse($('trusted', trusted).text()));
+                iq = this._createIQ('verified', {type: 'get'});
+            this._connection.sendIQ(iq.tree(), function (verified) {
+                d.resolve(JSON.parse($('verified', verified).text()));
             }, d.reject);
             return d.promise();
         },
 
-        trustUser: function (uid, signature) {
+        verifyUser: function (uid, signature) {
             var d = $.Deferred(),
                 iq = this._createIQ('trust')
                 .t(JSON.stringify({uid: uid, signature: signature}));
