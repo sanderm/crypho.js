@@ -78,6 +78,32 @@ define([
             };
         },
 
+        verifyCurrentKey: function () {
+            var key = this.getCurrentKey(),
+                signing = this.get('keySignatures')[key.id],
+                signer;
+
+            // First check if there is a signature for this key, otherwise return undefined
+            if (signing) {
+                signer = globals.roster.get(signing.signer + '@' +XMPP.connection.domain);
+
+                // Check the key signature verifies.
+                if (globals.husher.verify(key.key, signing.signature, signer.publicKeys().signing)) {
+                    // If the key issuer is the user herself or if she is signed and trusted, return 'full' verification
+                    if (signer === globals.me) {
+                        return 'full';
+                    }
+                    if (signer.get('trusted') && globals.husher.verify(signer.fingerprint(), signer.get('trusted'))) {
+                        return 'full';
+                    }
+                    // Return 'keyOnly' verification when the key is verified but not the user
+                    return 'keyOnly';
+                } else {
+                    return false;
+                }
+            }
+        },
+
         getKeyById: function (id) {
             var key = this.attributes.keys[id],
                 keys;
