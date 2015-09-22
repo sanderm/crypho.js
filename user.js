@@ -174,6 +174,18 @@ define([
                     }
                 }
 
+                // Set trust levels
+                user_promises.push(
+                    XMPP.connection.Crypho.getTrustedUsers()
+                    .done(function (trusted) {
+                        _.each(trusted, function (signature, userID) {
+                            jid = userID + '@' +XMPP.connection.domain;
+                            user = self.get(jid);
+                            user.set({trusted: signature});
+                        });
+                    })
+                );
+
                 $.when.apply(this, user_promises).done(function () {
                     var json = self.toJSON();
                     d.resolve(self, json);
@@ -182,17 +194,6 @@ define([
                 $.when.apply(this, user_promises).fail(function () {
                     d.reject();
                 });
-
-                // Set trust levels
-                XMPP.connection.Crypho.getTrustedUsers()
-                .done(function (trusted) {
-                    _.each(trusted, function (signature, userID) {
-                        jid = userID + '@' +XMPP.connection.domain;
-                        user = self.get(jid);
-                        user.set({trusted: signature});
-                    });
-                });
-
             });
             rosterPromise.fail(d.reject);
             return d.promise();
