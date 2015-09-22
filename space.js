@@ -215,9 +215,9 @@ define([
                 return 0;
             }
             var opts = this.sortOptions[type1];
-            var func = opts['func'];
-            var params = opts['params'];
-            var mode = opts['mode'];
+            var func = opts.func;
+            var params = opts.params;
+            var mode = opts.mode;
 
             var val1 = Space.Space.prototype[func].call(item1, params);
             var val2 = Space.Space.prototype[func].call(item2, params);
@@ -233,10 +233,10 @@ define([
         setSort: function (spaceType, mode, func, params) {
             var opts = this.sortOptions[spaceType];
             if (mode === 'asc' || mode === 'desc'){
-                opts['mode'] = mode;
+                opts.mode = mode;
             }
-            opts['func'] = func;
-            opts['params'] = params;
+            opts.func = func;
+            opts.params = params;
             this.sort();
         },
 
