@@ -174,7 +174,7 @@ define([
                     }
                 }
 
-                // Set trust levels
+                // Set verification levels
                 user_promises.push(
                     XMPP.connection.Crypho.getVerifiedUsers()
                     .done(function (verified) {

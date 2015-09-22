@@ -318,7 +318,7 @@ define([
 
         verifyUser: function (uid, signature) {
             var d = $.Deferred(),
-                iq = this._createIQ('trust')
+                iq = this._createIQ('verifyUser')
                 .t(JSON.stringify({uid: uid, signature: signature}));
             this._connection.sendIQ(iq.tree(), d.resolve, d.reject);
             return d.promise();
