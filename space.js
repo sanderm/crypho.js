@@ -80,10 +80,11 @@ define([
 
         verifyCurrentKey: function () {
             var key = this.getCurrentKey(),
-                signing = this.get('keySignatures')[key.id],
+                signing = this.get('keySignatures'),
                 signer;
 
             // First check if there is a signature for this key, otherwise return undefined
+            signing = _.has(signing, key.id) && signing[key.id];
             if (signing) {
                 signer = globals.roster.get(signing.signer + '@' +XMPP.connection.domain);
 
