@@ -2,7 +2,7 @@ define([
     'jquery',
     'underscore',
     'backbone',
-    'XMPP',
+    './XMPP',
     ], function ($, _, Backbone, XMPP) {
 
     var Devices = {};
