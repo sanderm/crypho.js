@@ -192,78 +192,8 @@ define([
 
         model: Space.Space,
 
-        sortOptions: {
-            'group': {
-                func: 'get',
-                params: 'lastActivity',
-                mode: 'desc'
-            },
-            'contact': {
-                func: 'get',
-                params: 'lastActivity',
-                mode: 'desc'
-            }
-        },
-        /*The comparator sorts each type differently.
-          Sorting of each type works as follows:
-          Call the method func of the sortOptions
-          with the associated params on the Space objects which are
-          being compared and return the comparison of the results
-          respecting the respective mode.
-          e.g. A config like the following
-          sortOptions: {
-            'group': {
-                func: 'get',
-                params: 'lastActivity',
-                mode: 'desc'
-            },
-            'contact': {
-                func: 'title',
-                params: null,
-                mode: 'asc'
-            }
-          }
-          will compare two group Spaces by comparing
-          val1 = item1.get('lastActivity')
-          val2 = item2.get('lastActivity')
-
-          and two contact Spaces by comparing
-          val1 = item1.title()
-          val2 = item2.title()
-
-          respecting the respective mode
-          (descending for groups, ascending for contacts)
-        */
         comparator: function (item1, item2) {
-            var type1 = item1.get('type');
-            var type2 = item2.get('type');
-            if (type1 !== type2) {
-                return 0;
-            }
-            var opts = this.sortOptions[type1];
-            var func = opts.func;
-            var params = opts.params;
-            var mode = opts.mode;
-
-            var val1 = Space.Space.prototype[func].call(item1, params);
-            var val2 = Space.Space.prototype[func].call(item2, params);
-
-            if (mode === 'asc') {
-                return val1 < val2 ? -1 : 1;
-            } else
-            if (mode === 'desc') {
-                return val1 > val2 ? -1 : 1;
-            }
-        },
-
-        setSort: function (spaceType, mode, func, params) {
-            var opts = this.sortOptions[spaceType];
-            if (mode === 'asc' || mode === 'desc'){
-                opts.mode = mode;
-            }
-            opts.func = func;
-            opts.params = params;
-            this.sort();
+            return item1.get('lastActivity') > item2.get('lastActivity') ? -1 : 1;
         },
 
         _sort: function (options) {
