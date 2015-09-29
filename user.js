@@ -32,8 +32,11 @@ define([
                 self = this,
                 vCard;
 
+            options = options || {};
             // Check if we have the vCard in cache and resolve if it is the case.
-            vCard = User.store.get(this.id);
+            if (!options.nocache) {
+                vCard = User.store.get(this.id);
+            }
             if (vCard) {
                 this.set({vCard: vCard});
                 d.resolve(this);
@@ -133,6 +136,13 @@ define([
             XMPP.connection.roster.on(
                 'xmpp:roster:set',
                 this._onRosterSet,
+                this
+            );
+
+            // Subscribe to user vCard updates.
+            XMPP.connection.Crypho.on(
+                'vcardupdated',
+                this._onVCardUpdated,
                 this
             );
         },
@@ -270,6 +280,11 @@ define([
                     }
                 }
             });
+        },
+
+        _onVCardUpdated: function (userID) {
+            var user = this.get(userID);
+            user.fetch({nocache: true});
         },
 
         available: function () {
