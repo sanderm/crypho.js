@@ -158,7 +158,10 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
         verify: function (data, signature, publicKey) {
             var hash = husher._hash(data);
             signature = husher._b64.toBits(signature);
-            publicKey = publicKey || this.signingKey.pub
+            publicKey = publicKey || this.signingKey.pub;
+            if (_.isString(publicKey)) {
+                publicKey = husher.buildPublicKey(publicKey, 'ecdsa');
+            }
             try {
                 return publicKey.verify(hash, signature);
             } catch (e) {
@@ -198,11 +201,19 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
         // then using the first 16 hexadecimal characters.
         fingerprint: function () {
             var encryptionPublic = this.encryptionKey.pub._point.toBits(),
-                signingPublic = this.signingKey.pub._point.toBits(),
-                hash;
-            hash = husher._hash(encryptionPublic.concat(signingPublic));
-            hash = husher._hex.fromBits(hash);
-            return hash.slice(0,16);
+                signingPublic = this.signingKey.pub._point.toBits();
+            return husher._hash(encryptionPublic.concat(signingPublic));
+        },
+
+        generateKeyAndEncryptToPublicKeys: function (userPublicKeys) {
+            var key = husher.randomKey(),
+                keys = {};
+            _.each(userPublicKeys, function (pKey, userid) {
+                if (!(pKey instanceof sjcl.ecc.elGamal.publicKey))
+                    pKey = husher.buildPublicKey(pKey);
+                keys[userid] = this.encrypt(key, pKey);
+            }, this);
+            return {keys: keys, signature: this.sign(key)};
         },
 
         // toJSON from the time when we did not have a sign key.

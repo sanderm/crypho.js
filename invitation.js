@@ -3,7 +3,7 @@ define([
     'underscore',
     'backbone',
     'underi18n',
-    'XMPP',
+    './XMPP',
     'globals'
 ], function ($, _, Backbone, underi18n, XMPP, globals) {
 

@@ -3,10 +3,11 @@ define([
     'underscore',
     'backbone',
     'strophe',
-    'XMPP',
+    './XMPP',
     'burry',
     'globals',
-    ], function ($, _, Backbone, Strophe, XMPP, Burry, globals) {
+    'crypho/husher'
+    ], function ($, _, Backbone, Strophe, XMPP, Burry, globals, husher) {
 
     var User = {};
 
@@ -22,7 +23,8 @@ define([
             groups: [],
             vCard:  {},
             jids: [],
-            away: {}
+            away: {},
+            verified: null
         },
 
         fetch: function(options) {
@@ -30,8 +32,11 @@ define([
                 self = this,
                 vCard;
 
+            options = options || {};
             // Check if we have the vCard in cache and resolve if it is the case.
-            vCard = User.store.get(this.id);
+            if (!options.nocache) {
+                vCard = User.store.get(this.id);
+            }
             if (vCard) {
                 this.set({vCard: vCard});
                 d.resolve(this);
@@ -78,6 +83,25 @@ define([
             }
         },
 
+        publicKeys: function () {
+            var vCard = this.get('vCard');
+            if (!vCard.KEYS || !(vCard.KEYS.ENCRYPTIONPUB && vCard.KEYS.SIGNINGPUB)) {
+                return null;
+            }
+            return {
+                encryption: vCard.KEYS.ENCRYPTIONPUB,
+                signing: vCard.KEYS.SIGNINGPUB
+            };
+        },
+
+        fingerprint: function () {
+            var publicKeys = this.publicKeys();
+            if (!publicKeys) return null;
+            return husher._hash(
+                husher._b64.toBits(publicKeys.encryption).concat(husher._b64.toBits(publicKeys.signing))
+            );
+        },
+
         isOnline: function () {
             return this.get('jids').length ? true : false;
         },
@@ -114,6 +138,13 @@ define([
                 this._onRosterSet,
                 this
             );
+
+            // Subscribe to user vCard updates.
+            XMPP.connection.Crypho.on(
+                'vcardupdated',
+                this._onVCardUpdated,
+                this
+            );
         },
 
         // We provide getOrFetch so that when attempting to get a user,
@@ -135,10 +166,10 @@ define([
 
             var d = $.Deferred(),
                 self = this,
-                roster_promise = XMPP.connection.roster.get(),
+                rosterPromise = XMPP.connection.roster.get(),
                 user_promises = [];
 
-            roster_promise.done(function (roster) {
+            rosterPromise.done(function (roster) {
                 var jid, user, bare;
 
                 for (jid in roster) {
@@ -153,6 +184,18 @@ define([
                     }
                 }
 
+                // Set verification levels
+                user_promises.push(
+                    XMPP.connection.Crypho.getVerifiedUsers()
+                    .done(function (verified) {
+                        _.each(verified, function (signature, userID) {
+                            jid = userID + '@' +XMPP.connection.domain;
+                            user = self.get(jid);
+                            user.set({verified: signature});
+                        });
+                    })
+                );
+
                 $.when.apply(this, user_promises).done(function () {
                     var json = self.toJSON();
                     d.resolve(self, json);
@@ -161,9 +204,8 @@ define([
                 $.when.apply(this, user_promises).fail(function () {
                     d.reject();
                 });
-
             });
-            roster_promise.fail(d.reject);
+            rosterPromise.fail(d.reject);
             return d.promise();
         },
 
@@ -238,6 +280,11 @@ define([
                     }
                 }
             });
+        },
+
+        _onVCardUpdated: function (userID) {
+            var user = this.get(userID);
+            user.fetch({nocache: true});
         },
 
         available: function () {

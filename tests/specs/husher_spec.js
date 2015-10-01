@@ -87,10 +87,29 @@ define(['crypho/husher', 'sjcl'], function (husher, sjcl) {
                 json = '{"scrypt":{"scryptSalt":"MUkhdycPtis=","pN":16384,"pr":8,"pp":1},"encKey":{"macSalt":"OiuQ/DD/kc1/Oz89wcd+CIk+bzMHpnRbrwK3DPixF8s=","pub":"VpaLnle5yBAaWKUPIf6j4uBGkh6Yc3xpHwgptuFkEjvXkWlsS9b7epZRNK4PC9dWStvdHKbM7BjeVb5UsTtK1OuAJKlJk/HO14Cv7BKST60e6FJAsK59s4ELa6PWLwLb","sec":{"macSalt":"OiuQ/DD/kc1/Oz89wcd+CIk+bzMHpnRbrwK3DPixF8s=","iv":"Mv8i3RShJbObmB6y6Lnd7Q==","ct":"fJw28td7y+RtxJrWUdalXSIfoXOMr04EIbEocN45AuieGdvHWjEDX4pFnir5k3ZLHcYNhudeZsGFHR8jXgEgsVGfLhI2/INp9uOfyQwMI2o=","adata":"foo@bar.com"}},"signingKey":{"pub":"VfBxd8akQWuqhbL/qbXiGuPy5ku5mOtVmcGwngS4UXWAwjxeYBWopuCPWhTWM+doZDy4xtyUzkaR07l5USGwQBPElLpONKC1+IRdmz+dzRjLBd4Iqrwgk3biNq5viakK","sec":{"macSalt":"BED1rretn06sq9k4qThzw9tY0nemyPtf+b+mD+gTbYg=","iv":"tWG9Wr3kx182hIgWOMIIvg==","ct":"sjPmo3EF93DH7sytqXZhJMw6PpiODImfVccZodRxHblMENBmRZm6qX4hkkgAfF1kP8F1TqXGoENbT/LlOIdKPc9rD9FE6fMCVBc6bvkbjSM=","adata":"foo@bar.com"}},"authHash":"d+XnaY7zS3ytE46kOdUDnvb1gVWFz1IAR1lAeVyRgjg=","version":2}';
             h2.fromJSON('secret', JSON.parse(json))
             .done(function () {
-                expect(h2.fingerprint()).toEqual('b06471af0d257f29');
+                expect(h2.fingerprint()).toEqual([ -1335594577, 220561193, -509001404, 842612495, -1283032269, 258428455, -856053441, -796156258 ]);
                 done();
             });
 
+        });
+
+        it('generates a new key, signs and encrypts it using the public keys of a set of users', function () {
+            var keypairs = {
+                    foo: sjcl.ecc.elGamal.generateKeys(husher._CURVE),
+                    bar: sjcl.ecc.elGamal.generateKeys(husher._CURVE)
+                },
+                 pubKeys = {
+                    foo: keypairs.foo.pub,
+                    bar: keypairs.bar.pub
+                }, result, key;
+
+            result = h.generateKeyAndEncryptToPublicKeys(pubKeys);
+            // Verify both foo and bar can decrypt and obtain the same random key
+            expect(h.decrypt(result.keys.foo, keypairs.foo.sec)).toEqual(h.decrypt(result.keys.bar, keypairs.bar.sec));
+
+            // Verify the signature of the key
+            key = h.decrypt(result.keys.foo, keypairs.foo.sec);
+            expect(h.verify(key, result.signature, h.signingKey.pub)).toBeTruthy();
         });
 
         it('can serialize the cryptosystem to JSON and back with the legacy JSON formatter', function (done) {

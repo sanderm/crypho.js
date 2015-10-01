@@ -63,23 +63,17 @@ define([
         createGroupSpace: function(members) {
             var self = this,
                 d = $.Deferred(),
-                key = husher.randomKey(),
                 userid = Strophe.getNodeFromJid(this._connection.jid),
-                keys = {},
                 iq = this._createIQ('createspace')
                   .t(JSON.stringify({members: members}));
 
             this._connection.sendIQ(iq.tree(), function (response) {
-                var pubKey, pubKeys;
+                var pubKeys, keys;
                 pubKeys = JSON.parse($('keys', response).text());
-                _.each(pubKeys, function (k, member) {
-
-                    pubKey = husher.buildPublicKey(k);
-                    keys[member] = globals.husher.encrypt(key, pubKey);
-                });
-                keys[globals.me.userID()] = globals.husher.encrypt(key, globals.husher.encryptionKey.pub);
-                iq = self._createIQ('spacekeys', {id: $(response).attr('id')})
-                    .t(JSON.stringify(keys));
+                pubKeys[globals.me.userID()] = globals.husher.encryptionKey.pub;
+                keys = globals.husher.generateKeyAndEncryptToPublicKeys(pubKeys);
+                iq = self._createIQ('spacekeys', {id: $(response).attr('id')}, {signature: keys.signature})
+                    .t(JSON.stringify(keys.keys));
                 self._connection.sendIQ(iq.tree(),
                     function (response) {
                         var spaceId = $('space', response).text();
@@ -169,20 +163,16 @@ define([
         acceptInvitation: function (uid) {
             var d = $.Deferred(), self = this,
                 iq = this._createIQ('acceptinvitation')
-                    .t(uid),
-                key = husher.randomKey(),
-                keys = {};
-
+                    .t(uid);
             this._connection.sendIQ(iq.tree(),
                 function (response) {
-
                     var invitor_id = $('uid', response).text(),
-                        invitor_pubkey = husher.buildPublicKey($('pubkey', response).text());
-
-                    keys[globals.me.userID()] = globals.husher.encrypt(key, globals.husher.encryptionKey.pub);
-                    keys[invitor_id] = globals.husher.encrypt(key, invitor_pubkey);
-                    iq = self._createIQ('spacekeys', {id: $(response).attr('id')})
-                        .t(JSON.stringify(keys));
+                        publicKeys = {}, keys;
+                    publicKeys[invitor_id] = $('pubkey', response).text();
+                    publicKeys[globals.me.userID()] = globals.husher.encryptionKey.pub;
+                    keys = globals.husher.generateKeyAndEncryptToPublicKeys(publicKeys);
+                    iq = self._createIQ('spacekeys', {id: $(response).attr('id')}, {signature: keys.signature})
+                        .t(JSON.stringify(keys.keys));
 
                     self._connection.sendIQ(iq.tree(),
                         function (response) {
@@ -234,20 +224,14 @@ define([
             this._connection.sendIQ(iq.tree(),
                 function (response) {
                     // Create new key and encrypt with response's public keys.
-                    var keys = {},
-                        publicKeys = JSON.parse($('keys', response).text()),
-                        new_key = husher.randomKey();
+                    var publicKeys = JSON.parse($('keys', response).text()),
+                        keys;
 
-                    // Encrypt keys with remaining members public keys
-                    _.each(publicKeys, function (pKey, userid) {
-
-                        pKey = husher.buildPublicKey(pKey);
-                        keys[userid] = globals.husher.encrypt(new_key, pKey);
-                    });
+                    keys = globals.husher.generateKeyAndEncryptToPublicKeys(publicKeys);
 
                     // Send response and resolve
-                    iq = self._createIQ('spacekeys', {id: $(response).attr('id')})
-                        .t(JSON.stringify(keys));
+                    iq = self._createIQ('spacekeys', {id: $(response).attr('id')}, {signature: keys.signature})
+                        .t(JSON.stringify(keys.keys));
 
                     self._connection.sendIQ(iq.tree(), d.resolve, d.reject);
                 }, d.reject);
@@ -269,20 +253,13 @@ define([
             this._connection.sendIQ(iq.tree(),
                 function (response) {
                     // Create new key and encrypt with response's public keys.
-                    var keys = {},
-                        publicKeys = JSON.parse($('keys', response).text()),
-                        new_key = husher.randomKey();
-
-                    // Encrypt keys with remaining members public keys
-                    _.each(publicKeys, function (pKey, userid) {
-
-                        pKey = husher.buildPublicKey(pKey);
-                        keys[userid] = globals.husher.encrypt(new_key, pKey);
-                    });
+                    var publicKeys = JSON.parse($('keys', response).text()),
+                        keys;
+                    keys = globals.husher.generateKeyAndEncryptToPublicKeys(publicKeys);
 
                     // Send response and resolve
-                    iq = self._createIQ('spacekeys', {id: $(response).attr('id')})
-                        .t(JSON.stringify(keys));
+                    iq = self._createIQ('spacekeys', {id: $(response).attr('id')}, {signature: keys.signature})
+                        .t(JSON.stringify(keys.keys));
 
                     self._connection.sendIQ(iq.tree(), d.resolve, d.reject);
                 }, d.reject);
@@ -328,6 +305,23 @@ define([
             this._connection.sendIQ(iq.tree(), d.resolve, d.reject);
             return d.promise();
 
+        },
+
+        getVerifiedUsers: function () {
+            var d = $.Deferred(),
+                iq = this._createIQ('verified', {type: 'get'});
+            this._connection.sendIQ(iq.tree(), function (verified) {
+                d.resolve(JSON.parse($('verified', verified).text()));
+            }, d.reject);
+            return d.promise();
+        },
+
+        verifyUser: function (uid, signature) {
+            var d = $.Deferred(),
+                iq = this._createIQ('verifyUser')
+                .t(JSON.stringify({uid: uid, signature: signature}));
+            this._connection.sendIQ(iq.tree(), d.resolve, d.reject);
+            return d.promise();
         },
 
         getUpdates: function (data) {

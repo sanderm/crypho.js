@@ -14,7 +14,7 @@ define([
     jasmine.DEFAULT_TIMEOUT_INTERVAL = 10000;
 
     describe('Crypho Protocol Tests', function () {
-        var userID = 'qux', password = 'quxpass', email = 'qux@me.com',
+        var userID = 'qux', password = 'quxpass', email = 'qux@foobarqux.com',
             fooHusher, barHusher,
             connection, successHandler, errorHandler,
             response, node, parsed, PUB_KEYS;
@@ -49,9 +49,9 @@ define([
             fooHusher = new husher.Husher();
             barHusher = new husher.Husher();
 
-            gh_p = globals.husher.generate(password);
-            fh_p =  fooHusher.generate('foopass');
-            bh_p =  barHusher.generate('barpass');
+            gh_p = globals.husher.generate(password, email);
+            fh_p =  fooHusher.generate('foopass', 'foo@foobarqux.com');
+            bh_p =  barHusher.generate('barpass', 'bar@foobarqux.com');
 
             $.when(gh_p, fh_p, bh_p).done(function(){done();});
         });
@@ -120,16 +120,24 @@ define([
                     expect(parsed.members).toBeDefined();
                     expect(parsed.members).toEqual(members);
                     keys = {
-                        'foo' : fooHusher.toSession().pub,
-                        'bar' : barHusher.toSession().pub,
+                        'foo' : fooHusher.toSession().encryptionKey.pub,
+                        'bar' : barHusher.toSession().encryptionKey.pub,
                     };
                     sendResponse(toResponse(request).c('keys', {xmlns:NS_CRYPHO}).t(JSON.stringify(keys)));
                 } else
                 if (node.tagName === 'spacekeys') {
                     parsed = JSON.parse(node.innerHTML);
-                    globals.husher.decrypt(parsed[globals.me.userID()]);
-                    fooHusher.decrypt(parsed.foo);
-                    barHusher.decrypt(parsed.bar);
+
+                    // Both recipients should be able to decrypt the same key
+                    var key = globals.husher.decrypt(parsed[globals.me.userID()]);
+                    expect(key).toEqual(fooHusher.decrypt(parsed.foo));
+                    expect(key).toEqual(barHusher.decrypt(parsed.bar));
+                    // Foo should be able to verify the key was signed by the requester.
+                    expect(
+                        fooHusher.verify(key,
+                                         node.getAttribute('signature'),
+                                         globals.husher.signingKey.pub)
+                    ).toBeTruthy();
                     sendResponse(toResponse(request).c('space', {xmlns:NS_CRYPHO}).t(spaceid));
                 }
             });
@@ -231,7 +239,7 @@ define([
         });
 
         it('handles acceptInvitation', function () {
-            var fooid = "foo", spaceid = 'foobar', invitationid = 'foobarqux';
+            var spaceid = 'foobar', invitationid = 'foobarqux';
 
             spyOn(connection, 'send').and.callFake(function(request) {
                 var res;
@@ -241,14 +249,21 @@ define([
                 if (node.tagName === 'acceptinvitation' ) {
                     expect (node.innerHTML).toEqual(invitationid);
                     res = toResponse(request).c('invitor', {xmlns:NS_CRYPHO});
-                    res.c('uid').t(fooid).up();
-                    res.c('pubkey').t(fooHusher.toSession().pub);
+                    res.c('uid').t('foo').up();
+                    res.c('pubkey').t(fooHusher.toSession().encryptionKey.pub);
                     sendResponse(res);
                 } else
                 if (node.tagName === 'spacekeys') {
                     parsed = JSON.parse(node.innerHTML);
-                    globals.husher.decrypt(parsed[globals.me.userID()]);
-                    fooHusher.decrypt(parsed[fooid]);
+                    // Both recipients should be able to decrypt the same key
+                    var key = fooHusher.decrypt(parsed.foo);
+                    expect(key).toEqual(globals.husher.decrypt(parsed[globals.me.userID()]));
+                    // Foo should be able to verify the key was signed by the requester.
+                    expect(
+                        fooHusher.verify(key,
+                                         node.getAttribute('signature'),
+                                         globals.husher.signingKey.pub)
+                    ).toBeTruthy();
                     sendResponse(toResponse(request).c('space', {xmlns:NS_CRYPHO}).t(spaceid));
                 }
             });
@@ -282,7 +297,7 @@ define([
                 if (node.tagName === 'addmember' ) {
                     expect ($(node).attr('spaceid')).toEqual(spaceid);
                     expect ($(node).attr('memberid')).toEqual(memberid);
-                    sendResponse(toResponse(request).c('key', {xmlns:NS_CRYPHO}).t(fooHusher.toSession().pub));
+                    sendResponse(toResponse(request).c('key', {xmlns:NS_CRYPHO}).t(fooHusher.toSession().encryptionKey.pub));
                 } else
                 if (node.tagName === 'spacekeys') {
                     parsed = JSON.parse(node.innerHTML);
@@ -307,12 +322,19 @@ define([
                     expect ($(node).attr('spaceid')).toEqual(spaceid);
                     expect ($(node).attr('memberid')).toEqual(memberid);
 
-                    var spacekeys = {'foo': fooHusher.toSession().pub};
+                    var spacekeys = {'foo': fooHusher.toSession().encryptionKey.pub};
                     sendResponse(toResponse(request).c('keys', {xmlns:NS_CRYPHO}).t(JSON.stringify(spacekeys)));
                 } else
                 if (node.tagName === 'spacekeys') {
                     parsed = JSON.parse(node.innerHTML);
-                    expect(globals.husher.decrypt(parsed.foo, fooHusher.encryptionKey.sec)).toBeDefined();
+                    // Foo should be able to verify the key was signed by the requester.
+                    var key = globals.husher.decrypt(parsed.foo, fooHusher.encryptionKey.sec);
+                    expect(key).toBeDefined();
+                    expect(
+                        fooHusher.verify(key,
+                                         node.getAttribute('signature'),
+                                         globals.husher.signingKey.pub)
+                    ).toBeTruthy();
                     sendResponse(toResponse(request));
                 }
             });
@@ -341,12 +363,18 @@ define([
                 node = getProtocolCommand(['iq > addspacekey', 'iq > spacekeys'], request);
                 if (node.tagName === 'addspacekey' ) {
                     expect ($(node).attr('spaceid')).toEqual(spaceid);
-                    var spacekeys = {'foo': fooHusher.toSession().pub};
+                    var spacekeys = {'foo': fooHusher.toSession().encryptionKey.pub};
                     sendResponse(toResponse(request).c('keys', {xmlns:NS_CRYPHO}).t(JSON.stringify(spacekeys)));
                 } else
                 if (node.tagName === 'spacekeys') {
                     parsed = JSON.parse(node.innerHTML);
-                    expect(globals.husher.decrypt(parsed.foo, fooHusher.encryptionKey.sec)).toBeDefined();
+                    var key = globals.husher.decrypt(parsed.foo, fooHusher.encryptionKey.sec);
+                    expect(key).toBeDefined();
+                    expect(
+                        fooHusher.verify(key,
+                                         node.getAttribute('signature'),
+                                         globals.husher.signingKey.pub)
+                    ).toBeTruthy();
                     sendResponse(toResponse(request));
                 }
             });
