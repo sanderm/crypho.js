@@ -60,12 +60,15 @@ define([
 
         fetch: function () {
             var self = this,
-                p = XMPP.connection.Crypho.getSpace(this.id);
+                d = $.Deferred();
 
-            p.done(function (json) {
+            XMPP.connection.Crypho.getSpace(this.id)
+            .done(function (json) {
                 self.set(self.parse(json));
-            });
-            return p;
+                d.resolve(self);
+            })
+            .fail(d.reject);
+            return d;
         },
 
         getCurrentKey: function () {
