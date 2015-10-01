@@ -230,12 +230,17 @@ define([
                         space = Space.Space.prototype.parse(json);
                         self.set([space], {remove: false});
                     } else {
-                        self.add(Space.Space.prototype.parse(json));
-                        space = self.get(id);
-                        space.lastSeen = new Date(1).toISOString();
-                        space.infostream.fetchProgressive();
-                        space.filestream.fetch();
-                        self._updateSelfGroups();
+                        // It might be the space contains users we do not
+                        // yet have in our roster. Update that first before
+                        // triggering an "add".
+                        globals.roster.fetch().done(function () {
+                            self.add(Space.Space.prototype.parse(json));
+                            space = self.get(id);
+                            space.lastSeen = new Date(1).toISOString();
+                            space.infostream.fetchProgressive();
+                            space.filestream.fetch();
+                            self._updateSelfGroups();
+                        });
                     }
                 });
             });
