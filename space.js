@@ -17,6 +17,7 @@ define([
         urlRoot: '/spaces',
 
         defaults: {
+            hasFetchedStreams: false,
             roles: {},
             unread: 0,
             lastActivity:'2010',
@@ -69,6 +70,13 @@ define([
             })
             .fail(d.reject);
             return d;
+        },
+
+        fetchStreams: function () {
+            if (!this.get('hasFetchedStreams')) {
+                this.infostream.fetchProgressive();
+                this.filestream.fetch();
+            }
         },
 
         getCurrentKey: function () {
