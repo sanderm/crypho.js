@@ -16,8 +16,9 @@ define([
 
         urlRoot: '/spaces',
 
+        hasFetchedStreams: false,
+
         defaults: {
-            hasFetchedStreams: false,
             roles: {},
             unread: 0,
             lastActivity:'2010',
@@ -73,9 +74,10 @@ define([
         },
 
         fetchStreams: function () {
-            if (!this.get('hasFetchedStreams')) {
+            if (!this.hasFetchedStreams) {
                 this.infostream.fetchProgressive();
                 this.filestream.fetch();
+                this.hasFetchedStreams = true;
             }
         },
 
@@ -245,8 +247,7 @@ define([
                             self.add(Space.Space.prototype.parse(json));
                             space = self.get(id);
                             space.lastSeen = new Date(1).toISOString();
-                            space.infostream.fetchProgressive();
-                            space.filestream.fetch();
+                            space.fetchStreams();
                             self._updateSelfGroups();
                         });
                     }
