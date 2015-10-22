@@ -17,10 +17,12 @@ define([
         accept: function () {
             var self = this,
                 space;
-            return XMPP.connection.Crypho.acceptInvitation(this.get('uid')).done(function (id) {
+            return XMPP.connection.Crypho.acceptInvitation(this.get('uid')).done(function (spaceId) {
                 var onSpaceCreated = function (space) {
-                    space.infostream.createActionItem({}, 'spaceCreated');
-                    globals.spaces.off('add', onSpaceCreated);
+                    if (spaceId === space.id) {
+                        space.infostream.createActionItem({}, 'spaceCreated');
+                        globals.spaces.off('add', onSpaceCreated);
+                    }
                 };
                 globals.spaces.on('add', onSpaceCreated);
             });
