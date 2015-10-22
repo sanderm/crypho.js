@@ -464,6 +464,10 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
             };
 
             this.authKey = json.authKey;
+        },
+
+        isInitialized: function () {
+            return this.encryptionKey && this.signingKey && this.authKey;
         }
     };
 
