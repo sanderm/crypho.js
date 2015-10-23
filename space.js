@@ -257,9 +257,6 @@ define([
 
         onSpaceDeleted: function (spaceID) {
             var space = this.get(spaceID);
-            if (globals.app.space && globals.app.space.id === spaceID) {
-                Backbone.history.navigate('/', {trigger: true});
-            }
             space.stopListening();
             this.remove(spaceID);
             this._updateSelfGroups();
