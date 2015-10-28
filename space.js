@@ -75,9 +75,10 @@ define([
 
         fetchStreams: function () {
             if (!this.hasFetchedStreams) {
-                this.infostream.fetchProgressive();
-                this.filestream.fetch();
                 this.hasFetchedStreams = true;
+                return $.when(this.infostream.fetchProgressive(), this.filestream.fetch());
+            } else {
+                return $.Deferred().resolve();
             }
         },
 
