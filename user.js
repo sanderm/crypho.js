@@ -209,6 +209,16 @@ define([
             return d.promise();
         },
 
+        contacts: function(){
+            var contacts = [];
+            _.each(globals.spaces.models, function(space){
+                if (space.get('type') ==='contact') {
+                    contacts = _.union(contacts, space.otherParticipants());
+                }
+            });
+            return contacts;
+        },
+
         _onUserAvailable: function (ev) {
             var bare = Strophe.getBareJidFromJid(ev.jid),
                 user = this.get(bare),
