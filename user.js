@@ -210,13 +210,13 @@ define([
         },
 
         contacts: function(){
-            var contacts = [];
-            _.each(globals.spaces.models, function(space){
-                if (space.get('type') ==='contact') {
-                    contacts = _.union(contacts, space.otherParticipants());
-                }
+            var contactSpaces = _.filter(globals.spaces.models, function(space){
+                return space.get('type') === 'contact';
             });
-            return contacts;
+
+            return _.map(contactSpaces, function(space){
+                return space.otherParticipants()[0];
+            });
         },
 
         _onUserAvailable: function (ev) {
