@@ -1,4 +1,4 @@
-define(['underscore', 'sjcl', 'crypho/scrypt'], function (_, sjcl, scrypt) {
+define(['underscore', 'sjcl'], function (_, sjcl) {
 
     describe('Scrypt', function () {
 
@@ -210,7 +210,7 @@ define(['underscore', 'sjcl', 'crypho/scrypt'], function (_, sjcl, scrypt) {
                                            test.N,
                                            test.r,
                                            test.p,
-                                           test.dkLen);
+                                           test.dkLen * 8);
 
                 expect(sjcl.codec.hex.fromBits(key)).toEqual(test.expected);
             });
