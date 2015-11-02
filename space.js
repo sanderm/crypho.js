@@ -280,6 +280,12 @@ define([
 
         },
 
+        getByType: function (type) {
+            return this.filter(function (space) {
+                return space.get('type') === type;
+            });
+        },
+
         fetch: function () {
             var spaces, self = this,
                 p = XMPP.connection.Crypho.getSpaces();
