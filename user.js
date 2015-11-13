@@ -267,26 +267,31 @@ define([
         },
 
         _onRosterSet: function (items) {
-            var user, diff;
+            var user, diff, self = this;
+
             _.each(items, function (item) {
-                user = globals.roster.get(item.jid);
+                user = self.get(item.jid);
                 if (item.subscription === 'both') { // add/modify in roster
                     if (!user) {
                         user = new User.XMPPUser({id: item.jid});
                         user.fetch().done(function () {
-                            user.set('groups', _.union(user.get('groups'), item.groups));
-                            globals.roster.set([user], {remove: false});
+                            if (self.get(item.jid)) {
+                                user = self.get(item.jid);
+                            } else {
+                                self.add(user);
+                            }
+                            user.set({groups: _.union(user.get('groups'), item.groups)});
                         });
                     } else {
                         user.set({groups: _.union(user.get('groups'), item.groups)});
                     }
                 } else { // remove from roster
-                    user = globals.roster.get(item.jid);
+                    user = self.get(item.jid);
                     diff = _.difference(user.get('groups'), item.groups);
                     if (diff) {
                         user.set('groups', diff);
                     } else {
-                        globals.roster.remove(item.jid);
+                        self.remove(item.jid);
                     }
                 }
             });
