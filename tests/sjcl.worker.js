@@ -3,56 +3,56 @@
 importScripts('sjcl.js');
 
 var encryptBinary = function (password, plaintext, params) {
-        params = params || {};
-        var j = sjcl.json,
-            p = j._add(j.defaults,
-            {iv: sjcl.random.randomWords(4,0)}),
-            tmp,
-            prp,
-            adata,
-            ct;
+    params = params || {};
+    var j = sjcl.json,
+        p = j._add(j.defaults,
+        {iv: sjcl.random.randomWords(4,0)}),
+        tmp,
+        prp,
+        adata,
+        ct;
 
-        j._add(p, params);
-        adata = p.adata;
+    j._add(p, params);
+    adata = p.adata;
 
-        if (typeof p.salt === "string") {
-            p.salt = sjcl.codec.base64.toBits(p.salt);
-        }
+    if (typeof p.salt === "string") {
+        p.salt = sjcl.codec.base64.toBits(p.salt);
+    }
 
-        if (typeof p.iv === "string") {
-            p.iv = sjcl.codec.base64.toBits(p.iv);
-        }
+    if (typeof p.iv === "string") {
+        p.iv = sjcl.codec.base64.toBits(p.iv);
+    }
 
-        if (!sjcl.mode[p.mode] ||
-            !sjcl.cipher[p.cipher] ||
-            (typeof password === "string" && p.iter <= 100) ||
-            (p.ts !== 64 && p.ts !== 96 && p.ts !== 128) ||
-            (p.ks !== 128 && p.ks !== 192 && p.ks !== 256) ||
-            (p.iv.length < 2 || p.iv.length > 4)) {
-            throw new sjcl.exception.invalid("json encrypt: invalid parameters");
-        }
+    if (!sjcl.mode[p.mode] ||
+        !sjcl.cipher[p.cipher] ||
+        (typeof password === "string" && p.iter <= 100) ||
+        (p.ts !== 64 && p.ts !== 96 && p.ts !== 128) ||
+        (p.ks !== 128 && p.ks !== 192 && p.ks !== 256) ||
+        (p.iv.length < 2 || p.iv.length > 4)) {
+        throw new sjcl.exception.invalid("json encrypt: invalid parameters");
+    }
 
-        if (typeof password === "string") {
-            tmp = sjcl.misc.cachedPbkdf2(password, p);
-            password = tmp.key.slice(0,p.ks/32);
-            p.salt = tmp.salt;
-        }
+    if (typeof password === "string") {
+        tmp = sjcl.misc.cachedPbkdf2(password, p);
+        password = tmp.key.slice(0,p.ks/32);
+        p.salt = tmp.salt;
+    }
 
-        plaintext = sjcl.codec.bytes.toBits(plaintext);
+    plaintext = sjcl.codec.bytes.toBits(plaintext);
 
-        if (typeof adata === "string") {
-            adata = sjcl.codec.utf8String.toBits(adata);
-        }
+    if (typeof adata === "string") {
+        adata = sjcl.codec.utf8String.toBits(adata);
+    }
 
-        prp = new sjcl.cipher[p.cipher](password);
+    prp = new sjcl.cipher[p.cipher](password);
 
-        /* return the json data */
-        j._add(p);
+    /* return the json data */
+    j._add(p);
 
-        /* do the encryption */
-        ct = sjcl.mode[p.mode].encrypt(prp, plaintext, p.iv, adata, p.ts);
-        ct = sjcl.codec.bytes.fromBits(ct);
-        return {params: j.encode(p), ct: ct};
+    /* do the encryption */
+    ct = sjcl.mode[p.mode].encrypt(prp, plaintext, p.iv, adata, p.ts);
+    ct = sjcl.codec.bytes.fromBits(ct);
+    return {params: j.encode(p), ct: ct};
 };
 
 var decryptBinary = function (password, ciphertext, params) {
