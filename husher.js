@@ -9,6 +9,8 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
         _bytes: sjcl.codec.bytes,
         _hash: sjcl.hash.sha256.hash,
 
+        _OCB2Slice: 1024,
+
         _versions: {
             1: {
                 v: 1,
@@ -156,6 +158,64 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
                 [key, ct, _.extend(params, husher._versions[params.v])]);
             return p;
         },
+
+        encryptBinary: function (pt, key, adata) {
+            var index = 0;
+            var ct = [];
+            var iv = husher._getRandomWords(4); // 128-bits for OCB2 IVs.
+            var p = $.Deferred();
+            key = husher._b64.toBits(key);
+            adata = husher._utf8.toBits(adata);
+
+            // Use AES as the PRP
+            var prp = new sjcl.cipher.aes(key);
+            var encryptor = sjcl.mode.ocb2progressive.createEncryptor(prp, iv, adata);
+
+            _.defer(function () {
+                while (index < pt.length) {
+                    p.notify(index * 100 / pt.length);
+                    ct = ct.concat(encryptor.process(pt.slice(index, index + husher._OCB2Slice)));
+                    index += husher._OCB2Slice;
+                }
+                ct = ct.concat(encryptor.finalize());
+                p.resolve({
+                    ct: husher._bytes.fromBits(ct),
+                    params: {
+                        ocb2: true,
+                        iv: husher._b64.fromBits(iv),
+                        adata: husher._b64.fromBits(adata)
+                    },
+                });
+            });
+
+            return p;
+        },
+
+        decryptBinary: function (ct, key, params) {
+            var index = 0;
+            var pt = [];
+            var iv = husher._b64.toBits(params.iv);
+            var adata = husher._b64.toBits(params.adata);
+            var p = $.Deferred();
+
+            key = husher._b64.toBits(key);
+            ct = husher._bytes.toBits(ct);
+            var prp = new sjcl.cipher.aes(key);
+            var decryptor = sjcl.mode.ocb2progressive.createDecryptor(prp, iv, adata);
+
+            _.defer(function () {
+                while (index < ct.length) {
+                    p.notify(index * 100 / ct.length);
+                    pt = pt.concat(decryptor.process(ct.slice(index, index + husher._OCB2Slice)));
+                    index += husher._OCB2Slice;
+                }
+                pt = pt.concat(decryptor.finalize());
+                p.resolve(husher._bytes.fromBits(pt));
+            });
+
+            return p;
+        },
+
 
         sign: function (data) {
             var hash = husher._hash(data);
