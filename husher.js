@@ -141,7 +141,7 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
             }
         },
 
-        encryptBinary: function (pt, key, adata) {
+        encryptBinaryLegacy: function (pt, key, adata) {
             var params = _.clone(husher._versions[husher._currVersion]);
             if (adata) {
                 params.adata = adata;
@@ -151,7 +151,7 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
             return p;
         },
 
-        decryptBinary: function (ct, key, params) {
+        decryptBinaryLegacy: function (ct, key, params) {
             var p = husher.sweatshop.queue('sjcl', 'decryptBinary',
                 [key, ct, _.extend(params, husher._versions[params.v])]);
             return p;
