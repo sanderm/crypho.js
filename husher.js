@@ -207,12 +207,17 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
             var prp = new sjcl.cipher.aes(key);
             var decryptor = sjcl.mode.ocb2progressive.createDecryptor(prp, iv, adata);
 
+            var decBlock = function (i) {
+                p.notify(i * 100 / pt.length);
+                pt = pt.concat(decryptor.process(ct.slice(i, i + husher._OCB2Slice)));
+            };
+
+            while (index < ct.length) {
+                _.defer(decBlock, index);
+                index += husher._OCB2Slice;
+            }
+
             _.defer(function () {
-                while (index < ct.length) {
-                    p.notify(index * 100 / ct.length);
-                    pt = pt.concat(decryptor.process(ct.slice(index, index + husher._OCB2Slice)));
-                    index += husher._OCB2Slice;
-                }
                 pt = pt.concat(decryptor.finalize());
                 p.resolve(husher._bytes.fromBits(pt));
             });
