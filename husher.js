@@ -9,7 +9,7 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
         _bytes: sjcl.codec.bytes,
         _hash: sjcl.hash.sha256.hash,
 
-        _OCB2Slice: 1024,
+        _OCB2Slice: 1048576,
 
         _versions: {
             1: {
@@ -171,12 +171,16 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
             var prp = new sjcl.cipher.aes(key);
             var encryptor = sjcl.mode.ocb2progressive.createEncryptor(prp, iv, adata);
 
+            var encBlock = function (i) {
+                p.notify(i * 100 / pt.length);
+                ct = ct.concat(encryptor.process(pt.slice(i, i + husher._OCB2Slice)));
+            };
+
+            while (index < pt.length) {
+                _.defer(encBlock, index);
+                index += husher._OCB2Slice;
+            }
             _.defer(function () {
-                while (index < pt.length) {
-                    p.notify(index * 100 / pt.length);
-                    ct = ct.concat(encryptor.process(pt.slice(index, index + husher._OCB2Slice)));
-                    index += husher._OCB2Slice;
-                }
                 ct = ct.concat(encryptor.finalize());
                 p.resolve({
                     ct: husher._bytes.fromBits(ct),
