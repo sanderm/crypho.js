@@ -208,7 +208,7 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
             var decryptor = sjcl.mode.ocb2progressive.createDecryptor(prp, iv, adata);
 
             var decBlock = function (i) {
-                p.notify(i * 100 / pt.length);
+                p.notify(i * 100 / ct.length);
                 pt = pt.concat(decryptor.process(ct.slice(i, i + husher._OCB2Slice)));
             };
 
