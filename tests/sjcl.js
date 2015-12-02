@@ -4663,11 +4663,6 @@ sjcl.ecc.ecdsa.publicKey.prototype = {
         hG = sjcl.bn.fromBits(hash).mul(s).mod(R),
         hA = r.mul(s).mod(R),
         r2 = this._curve.G.mult2(hG, hA, this._point).x;
-        console.log(r.equals(0));
-        console.log(ss.equals(0));
-        console.log(r.greaterEquals(R));
-        console.log(ss.greaterEquals(R));
-        console.log(!r2.equals(r));
     if (r.equals(0) || ss.equals(0) || r.greaterEquals(R) || ss.greaterEquals(R) || !r2.equals(r)) {
       if (fakeLegacyVersion === undefined) {
         return this.verify(hash, rs, true);

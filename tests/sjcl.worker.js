@@ -1,9 +1,9 @@
 /* global sjcl, self */
-
 importScripts('sjcl.js');
 
 var encryptBinary = function (password, plaintext, params) {
     params = params || {};
+
     var j = sjcl.json,
         p = j._add(j.defaults,
         {iv: sjcl.random.randomWords(4,0)}),
@@ -56,12 +56,7 @@ var encryptBinary = function (password, plaintext, params) {
 };
 
 var decryptBinary = function (password, ciphertext, params) {
-    var j = sjcl.json,
-        p = params,
-        adata=p.adata,
-        ct,
-        tmp,
-        prp;
+    var j = sjcl.json, p = params, ct, tmp, prp, adata=p.adata;
 
     if (typeof p.salt === "string") {
         p.salt = sjcl.codec.base64.toBits(p.salt);
@@ -90,6 +85,7 @@ var decryptBinary = function (password, ciphertext, params) {
     if (typeof adata === "string") {
         adata = sjcl.codec.utf8String.toBits(adata);
     }
+
     prp = new sjcl.cipher[p.cipher](password);
 
     ciphertext = sjcl.codec.bytes.toBits(ciphertext);
@@ -100,10 +96,11 @@ var decryptBinary = function (password, ciphertext, params) {
 };
 
 var scrypt = function (passwd, options) {
-    return sjcl.misc.scrypt(passwd, options.salt, options.N, options.r, options.p, options.dkLen);
+  return sjcl.misc.scrypt(passwd, options.salt, options.N, options.r, options.p, options.dkLen);
 };
 
 self.addEventListener('message', function (ev) {
+
     var data = ev.data;
     switch (data.cmd) {
         case 'encryptBinary':
@@ -118,4 +115,5 @@ self.addEventListener('message', function (ev) {
         default:
             break;
     }
+
 }, false);
