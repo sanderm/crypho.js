@@ -143,7 +143,7 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
             }
         },
 
-        encryptBinaryLegacy: function (pt, key, adata) {
+        encryptBinary: function (pt, key, adata) {
             var params = _.clone(husher._versions[husher._currVersion]);
             if (adata) {
                 params.adata = adata;
@@ -153,78 +153,46 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
             return p;
         },
 
-        decryptBinaryLegacy: function (ct, key, params) {
+        decryptBinary: function (ct, key, params) {
             var p = husher.sweatshop.queue('sjcl', 'decryptBinary',
                 [key, ct, _.extend(params, husher._versions[params.v])]);
             return p;
         },
 
-        encryptBinary: function (pt, key, adata) {
-            var index = 0;
-            var ct = [];
-            var iv = husher._getRandomWords(4); // 128-bits for OCB2 IVs.
-            var p = $.Deferred();
-            key = husher._b64.toBits(key);
-            adata = husher._utf8.toBits(adata);
-
-            // Use AES as the PRP
-            var prp = new sjcl.cipher.aes(key);
-            var encryptor = sjcl.mode.ocb2progressive.createEncryptor(prp, iv, adata);
-
-            var encBlock = function (i) {
-                p.notify(i * 100 / pt.length);
-                ct = ct.concat(encryptor.process(pt.slice(i, i + husher._OCB2Slice)));
-            };
-
-            while (index < pt.length) {
-                _.defer(encBlock, index);
-                index += husher._OCB2Slice;
+        encryptBinaryProgressive: function (pt, key, adata) {
+            if (typeof key === "string") {
+                key = husher._b64.toBits(key);
             }
-            _.defer(function () {
-                ct = ct.concat(encryptor.finalize());
-                p.resolve({
-                    ct: husher._bytes.fromBits(ct),
-                    params: {
-                        ocb2: true,
-                        iv: husher._b64.fromBits(iv),
-                        adata: husher._b64.fromBits(adata)
-                    },
-                });
-            });
+            if (typeof adata === "string") {
+                try {
+                    adata = husher._b64.toBits(adata);
+                } catch (e) {
+                    adata = husher._utf8.toBits(adata);
+                }
+            }
 
+            var iv = husher._getRandomWords(4);
+            var p = husher.sweatshop.queue('sjcl', 'encryptBinaryProgressive', [pt, key, iv, adata]);
             return p;
         },
 
-        decryptBinary: function (ct, key, params) {
-            var index = 0;
-            var pt = [];
-            var iv = husher._b64.toBits(params.iv);
-            var adata = husher._b64.toBits(params.adata);
-            var p = $.Deferred();
-
-            key = husher._b64.toBits(key);
-            ct = husher._bytes.toBits(ct);
-            var prp = new sjcl.cipher.aes(key);
-            var decryptor = sjcl.mode.ocb2progressive.createDecryptor(prp, iv, adata);
-
-            var decBlock = function (i) {
-                p.notify(i * 100 / ct.length);
-                pt = pt.concat(decryptor.process(ct.slice(i, i + husher._OCB2Slice)));
-            };
-
-            while (index < ct.length) {
-                _.defer(decBlock, index);
-                index += husher._OCB2Slice;
+        decryptBinaryProgressive: function (pt, key, iv, adata) {
+            if (typeof key === "string") {
+                key = husher._b64.toBits(key);
             }
-
-            _.defer(function () {
-                pt = pt.concat(decryptor.finalize());
-                p.resolve(husher._bytes.fromBits(pt));
-            });
-
+            if (typeof iv === "string") {
+                iv = husher._b64.toBits(iv);
+            }
+            if (typeof adata === "string") {
+                try {
+                    adata = husher._b64.toBits(adata);
+                } catch (e) {
+                    adata = husher._utf8.toBits(adata);
+                }
+            }
+            var p = husher.sweatshop.queue('sjcl', 'decryptBinaryProgressive', [pt, key, iv, adata]);
             return p;
         },
-
 
         sign: function (data) {
             var hash = husher._hash(data);

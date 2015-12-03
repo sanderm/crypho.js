@@ -1,6 +1,8 @@
 /* global sjcl, self */
 importScripts('sjcl.js');
 
+var _OCB2Slice = 1048576;
+
 var encryptBinary = function (password, plaintext, params) {
     params = params || {};
 
@@ -95,6 +97,42 @@ var decryptBinary = function (password, ciphertext, params) {
     return sjcl.codec.bytes.fromBits(ct);
 };
 
+var encryptBinaryProgressive = function (pt, key, iv, adata) {
+    var index = 0;
+    var ct = [];
+    var prp = new sjcl.cipher.aes(key);
+    var encryptor = sjcl.mode.ocb2progressive.createEncryptor(prp, iv, adata);
+
+    while (index < pt.length) {
+        ct = ct.concat(encryptor.process(pt.slice(index, index + _OCB2Slice)));
+        index += _OCB2Slice;
+    }
+    ct = ct.concat(encryptor.finalize());
+    return {
+        ct: ct,
+        params: {
+            ocb2: true,
+            iv: sjcl.codec.base64.fromBits(iv),
+            adata: sjcl.codec.base64.fromBits(adata)
+        },
+    };
+};
+
+var decryptBinaryProgresive = function (ct, key, iv, adata) {
+    var index = 0;
+    var pt = [];
+    var prp = new sjcl.cipher.aes(key);
+    var decryptor = sjcl.mode.ocb2progressive.createDecryptor(prp, iv, adata);
+
+    while (index < ct.length) {
+        pt = pt.concat(decryptor.process(ct.slice(index, index + _OCB2Slice)));
+        index += _OCB2Slice;
+    }
+
+    pt = pt.concat(decryptor.finalize());
+    return pt;
+};
+
 var scrypt = function (passwd, options) {
   return sjcl.misc.scrypt(passwd, options.salt, options.N, options.r, options.p, options.dkLen);
 };
@@ -109,6 +147,13 @@ self.addEventListener('message', function (ev) {
         case 'decryptBinary':
             self.postMessage(decryptBinary.apply(self, data.args));
             break;
+        case 'encryptBinaryProgressive':
+            self.postMessage(encryptBinaryProgressive.apply(self, data.args));
+            break;
+        case 'decryptBinaryProgressive':
+            self.postMessage(decryptBinaryProgresive.apply(self, data.args));
+            break;
+
         case 'scrypt':
             self.postMessage(scrypt.apply(self, data.args));
             break;

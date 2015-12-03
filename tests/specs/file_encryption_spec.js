@@ -13,10 +13,10 @@ define(['crypho/husher', 'sjcl'], function (husher, sjcl) {
 
             var i;
             // Uncomment for big files
-            // for (i = 0 ; i < 10 ; i++) {
-            //     b64 = b64 + b64;
-            // }
-            // jasmine.DEFAULT_TIMEOUT_INTERVAL = 50000;
+            for (i = 0 ; i < 5 ; i++) {
+                b64 = b64 + b64;
+            }
+            jasmine.DEFAULT_TIMEOUT_INTERVAL = 50000;
 
             var chars = atob(b64);
             var ints = new Array(chars.length);
@@ -71,7 +71,45 @@ define(['crypho/husher', 'sjcl'], function (husher, sjcl) {
                     };
                 });
             });
-
         });
+
+        it('can encrypt/decrypt a file using progressive OCB2', function (done) {
+            var time;
+            var key = husher.randomKey();
+            var dataview = new DataView(arrayBuffer);
+            var byteArray = new Uint8Array(arrayBuffer.byteLength);
+            var bitArray;
+            var reader = new window.FileReader();
+            var blob;
+            var i;
+
+            for (i=0 ; i < byteArray.length; i++) {
+                byteArray[i] = dataview.getUint8(i);
+            }
+            bitArray = husher._bytes.toBits(byteArray);
+            time = new Date().getTime();
+            h.encryptBinaryProgressive(bitArray, key, 'foo@bar.com')
+            .done(function (r) {
+                console.log(new Date().getTime() - time);
+                var params = r.params;
+                time = new Date().getTime();
+
+                h.decryptBinaryProgressive(r.ct, key, r.params.iv, r.params.adata)
+                .done(function (pt) {
+                    pt = husher._bytes.fromBits(pt);
+                    console.log(new Date().getTime() - time);
+                    byteArray = new Uint8Array(pt);
+                    blob = new Blob([byteArray], {type: ''});
+                    reader.readAsDataURL(blob);
+                    reader.onloadend = function() {
+                        pt = reader.result.split('base64,')[1];
+                        expect(pt).toEqual(b64);
+                        done();
+                    };
+                });
+            });
+        });
+
+
     });
 });
