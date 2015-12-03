@@ -1,7 +1,7 @@
 /* global sjcl, self */
 importScripts('sjcl.js');
 
-var _OCB2Slice = 1048576;
+var _OCB2Slice = 1024;
 
 var encryptBinary = function (password, plaintext, params) {
     params = params || {};
@@ -103,11 +103,14 @@ var encryptBinaryProgressive = function (pt, key, iv, adata) {
     var prp = new sjcl.cipher.aes(key);
     var encryptor = sjcl.mode.ocb2progressive.createEncryptor(prp, iv, adata);
 
+    // Array.prototype.push.apply(arr1, arr2) essentially concats the two arrays
+    // It's an optimization over concat as it avoids creating an extra array.
+
     while (index < pt.length) {
-        ct = ct.concat(encryptor.process(pt.slice(index, index + _OCB2Slice)));
+        ct.push.apply(ct, encryptor.process(pt.slice(index, index + _OCB2Slice)));
         index += _OCB2Slice;
     }
-    ct = ct.concat(encryptor.finalize());
+    ct.push.apply(ct, encryptor.finalize());
     return {
         ct: ct,
         params: {
@@ -123,13 +126,12 @@ var decryptBinaryProgresive = function (ct, key, iv, adata) {
     var pt = [];
     var prp = new sjcl.cipher.aes(key);
     var decryptor = sjcl.mode.ocb2progressive.createDecryptor(prp, iv, adata);
-
+    var block;
     while (index < ct.length) {
-        pt = pt.concat(decryptor.process(ct.slice(index, index + _OCB2Slice)));
+        pt.push.apply(pt, decryptor.process(ct.slice(index, index + _OCB2Slice)));
         index += _OCB2Slice;
     }
-
-    pt = pt.concat(decryptor.finalize());
+    pt.push.apply(pt, decryptor.finalize());
     return pt;
 };
 
