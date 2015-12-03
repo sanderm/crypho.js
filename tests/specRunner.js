@@ -42,7 +42,8 @@ require([
         'specs/sweatshop_spec',
         'specs/husher_spec',
         'specs/scrypt_spec',
-        'specs/protocol_spec'
+        'specs/protocol_spec',
+        'specs/file_encryption_spec',
     ], function ($) {
 
     var jasmineEnv = jasmine.getEnv();
