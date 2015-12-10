@@ -39,10 +39,10 @@ require.config({
 
 
 require([
-        // 'specs/sweatshop_spec',
-        // 'specs/husher_spec',
-        // 'specs/scrypt_spec',
-        // 'specs/protocol_spec',
+        'specs/sweatshop_spec',
+        'specs/husher_spec',
+        'specs/scrypt_spec',
+        'specs/protocol_spec',
         'specs/file_encryption_spec',
     ], function ($) {
 
