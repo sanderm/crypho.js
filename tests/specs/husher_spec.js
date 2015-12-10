@@ -1,4 +1,4 @@
-define(['crypho/husher', 'sjcl'], function (husher, sjcl) {
+define(['crypho/husher', 'crypho/sjcl'], function (husher, sjcl) {
 
     husher.sweatshop.registerWorker('sjcl', '../../sjcl.worker.js');
 

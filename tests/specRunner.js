@@ -20,7 +20,6 @@ require.config({
         underscore: '../bower_components/underscore/underscore',
         backbone: '../bower_components/backbone/backbone',
         strophe: '../bower_components/strophe/strophe',
-        sjcl: '../sjcl',
         globals: 'globals-mock',
         xmppMocker: 'xmpp-mocker',
     },
