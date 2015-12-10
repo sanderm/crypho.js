@@ -20,7 +20,7 @@ require.config({
         underscore: '../bower_components/underscore/underscore',
         backbone: '../bower_components/backbone/backbone',
         strophe: '../bower_components/strophe/strophe',
-        sjcl: 'sjcl',
+        sjcl: '../sjcl',
         globals: 'globals-mock',
         xmppMocker: 'xmpp-mocker',
     },
@@ -30,10 +30,6 @@ require.config({
             deps: ['jquery'],
             exports: 'Strophe'
         },
-
-        'crypho/scrypt': {
-            deps: ['sjcl']
-        }
     }
 });
 

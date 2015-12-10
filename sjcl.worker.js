@@ -1,5 +1,5 @@
 /* global sjcl, self */
-importScripts('sjcl.js');
+importScripts('./sjcl.js');
 
 var _OCB2Slice = 1024;
 

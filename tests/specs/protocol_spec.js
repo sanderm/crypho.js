@@ -9,7 +9,7 @@ define([
     var NS_CRYPHO = 'http://crypho.com/ns/crypho';
     var NS_JABBER_CLIENT = 'jabber:client';
     var IQ_TYPES = {SET:'set', GET:'get'};
-    husher.sweatshop.registerWorker('sjcl', 'sjcl.worker.js');
+    husher.sweatshop.registerWorker('sjcl', '../../sjcl.worker.js');
 
     jasmine.DEFAULT_TIMEOUT_INTERVAL = 10000;
 

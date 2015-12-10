@@ -1,6 +1,6 @@
 define(['crypho/husher', 'sjcl'], function (husher, sjcl) {
 
-    husher.sweatshop.registerWorker('sjcl', 'sjcl.worker.js');
+    husher.sweatshop.registerWorker('sjcl', '../../sjcl.worker.js');
 
     describe('File encryption', function () {
         var h;
