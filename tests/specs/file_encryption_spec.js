@@ -39,7 +39,7 @@ define(['crypho/husher', 'crypho/sjcl'], function (husher, sjcl) {
         });
 
         it('can encrypt/decrypt a file using CCM & bitArrays', function (done) {
-            var time;
+            var time = new Date().getTime();
             var key = husher.randomKey();
             var dataview = new DataView(arrayBuffer);
             var byteArray = new Uint8Array(arrayBuffer.byteLength);
@@ -50,7 +50,6 @@ define(['crypho/husher', 'crypho/sjcl'], function (husher, sjcl) {
             for (i=0 ; i < byteArray.length; i++) {
                 byteArray[i] = dataview.getUint8(i);
             }
-            time = new Date().getTime();
             h.encryptBinary(byteArray, key, 'foo@bar.com')
             .done(function (r) {
                 console.log(new Date().getTime() - time);
@@ -74,6 +73,8 @@ define(['crypho/husher', 'crypho/sjcl'], function (husher, sjcl) {
         });
 
         it('can encrypt/decrypt a file using progressive OCB2', function (done) {
+            time = new Date().getTime();
+
             var time;
             var key = husher.randomKey();
             var dataview = new DataView(arrayBuffer);
@@ -87,7 +88,6 @@ define(['crypho/husher', 'crypho/sjcl'], function (husher, sjcl) {
                 byteArray[i] = dataview.getUint8(i);
             }
             bitArray = husher._bytes.toBits(byteArray);
-            time = new Date().getTime();
             h.encryptBinaryProgressive(bitArray, key, 'foo@bar.com')
             .done(function (r) {
                 console.log(new Date().getTime() - time);
