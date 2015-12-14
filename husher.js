@@ -4,6 +4,7 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
 
         _CURVE: sjcl.ecc.curves.c384,
         _b64: sjcl.codec.base64,
+        _utf8: sjcl.codec.utf8String,
         _hex: sjcl.codec.hex,
         _bytes: sjcl.codec.bytes,
         _hash: sjcl.hash.sha256.hash,
@@ -51,7 +52,7 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
         _strengthenScrypt: _.memoize(function (passwd, options) {
             var d = $.Deferred();
             options = options || {};
-            options = _.extend({N: 16384, r: 8, p: 1, dkLen: 64, salt: husher._getRandomWords(2)}, options);
+            options = _.extend({N: 16384, r: 8, p: 1, dkLen: 512, salt: husher._getRandomWords(2)}, options);
 
             this.sweatshop.queue('sjcl', 'scrypt', [passwd, options])
                 .done(function (key) {
@@ -130,8 +131,14 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
             if (ct.v) {
                 ct = _.defaults(ct, husher._versions[ct.v]);
             }
-            ct = JSON.stringify(ct);
-            return sjcl.decrypt(key, ct);
+            try {
+                return sjcl.decrypt(key, JSON.stringify(ct));
+            } catch (e) {
+                try {
+                    ct.adata = husher._b64.fromBits(husher._utf8.toBits(ct.adata));
+                } catch (e) {}
+                return sjcl.decrypt(key, JSON.stringify(ct));
+            }
         },
 
         encryptBinary: function (pt, key, adata) {
@@ -267,9 +274,9 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
 
                 try {
                     // Calculate the curve's exponent
-                    exp = sjcl.bn.fromBits(husher._b64.toBits(sjcl.decrypt(
-                        self.macKey,
-                        JSON.stringify(json.sec)
+                    exp = sjcl.bn.fromBits(husher._b64.toBits(self.decrypt(
+                        JSON.stringify(json.sec),
+                        self.macKey
                     )));
 
                     self.encryptionKey = {
@@ -342,7 +349,7 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
                         macSalt: encrSalt,
                         iv: encryptedEncryptionPrivate.iv,
                         ct: encryptedEncryptionPrivate.ct,
-                        adata: email
+                        adata: encryptedEncryptionPrivate.adata
                     }
                 },
 
@@ -352,7 +359,7 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
                         macSalt: signSalt,
                         iv: encryptedSigningPrivate.iv,
                         ct: encryptedSigningPrivate.ct,
-                        adata: email
+                        adata: encryptedSigningPrivate.adata
                     }
                 },
 
@@ -391,9 +398,9 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
                     // Calculate the curve's exponent
                     exp = sjcl.bn.fromBits(
                         husher._b64.toBits(
-                            sjcl.decrypt(
-                                encKey,
-                                JSON.stringify(data)
+                            self.decrypt(
+                                JSON.stringify(data),
+                                encKey
                             )
                         )
                     );
@@ -409,9 +416,9 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
                     encKey = mac.mac(husher._b64.toBits(macSalt));
 
                     // Calculate the curve's exponent
-                    exp = sjcl.bn.fromBits(husher._b64.toBits(sjcl.decrypt(
-                        encKey,
-                        JSON.stringify(data)
+                    exp = sjcl.bn.fromBits(husher._b64.toBits(self.decrypt(
+                        JSON.stringify(data),
+                        encKey
                     )));
 
                     self.signingKey = {

@@ -564,7 +564,8 @@ sjcl.codec.base32 = {
   /** The base32 alphabet.
    * @private
    */
-  _chars: "0123456789abcdefghjkmnpqrstvwxyz",
+  _chars: "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567",
+  _hexChars: "0123456789ABCDEFGHIJKLMNOPQRSTUV",
 
   /* bits in an array */
   BITS: 32,
@@ -574,11 +575,15 @@ sjcl.codec.base32 = {
   REMAINING: 27,
 
   /** Convert from a bitArray to a base32 string. */
-  fromBits: function (arr, _noEquals) {
+  fromBits: function (arr, _noEquals, _hex) {
     var BITS = sjcl.codec.base32.BITS, BASE = sjcl.codec.base32.BASE, REMAINING = sjcl.codec.base32.REMAINING;
     var out = "", i, bits=0, c = sjcl.codec.base32._chars, ta=0, bl = sjcl.bitArray.bitLength(arr);
 
-    for (i=0; out.length * BASE <= bl; ) {
+    if (_hex) {
+      c = sjcl.codec.base32._hexChars;
+    }
+
+    for (i=0; out.length * BASE < bl; ) {
       out += c.charAt((ta ^ arr[i]>>>bits) >>> REMAINING);
       if (bits < BASE) {
         ta = arr[i] << (BASE-bits);
@@ -589,19 +594,33 @@ sjcl.codec.base32 = {
         bits -= BASE;
       }
     }
+    while ((out.length & 7) && !_noEquals) { out += "="; }
 
     return out;
   },
 
   /** Convert from a base32 string to a bitArray */
-  toBits: function(str) {
+  toBits: function(str, _hex) {
+    str = str.replace(/\s|=/g,'').toUpperCase();
     var BITS = sjcl.codec.base32.BITS, BASE = sjcl.codec.base32.BASE, REMAINING = sjcl.codec.base32.REMAINING;
-    var out = [], i, bits=0, c = sjcl.codec.base32._chars, ta=0, x;
+    var out = [], i, bits=0, c = sjcl.codec.base32._chars, ta=0, x, format="base32";
+
+    if (_hex) {
+      c = sjcl.codec.base32._hexChars;
+      format = "base32hex"
+    }
 
     for (i=0; i<str.length; i++) {
       x = c.indexOf(str.charAt(i));
       if (x < 0) {
-        throw new sjcl.exception.invalid("this isn't base32!");
+        // Invalid character, try hex format
+        if (!_hex) {
+          try {
+            return sjcl.codec.base32hex.toBits(str);
+          }
+          catch (e) {}
+        }
+        throw new sjcl.exception.invalid("this isn't " + format + "!");
       }
       if (bits > REMAINING) {
         bits -= REMAINING;
@@ -617,6 +636,11 @@ sjcl.codec.base32 = {
     }
     return out;
   }
+};
+
+sjcl.codec.base32hex = {
+  fromBits: function (arr, _noEquals) { return sjcl.codec.base32.fromBits(arr,_noEquals,1); },
+  toBits: function (str) { return sjcl.codec.base32.toBits(str,1); }
 };
 /** @fileOverview Bit array codec implementations.
  *
@@ -1467,6 +1491,27 @@ sjcl.mode.ccm = {
    */
   name: "ccm",
 
+  _progressListeners: [],
+
+  listenProgress: function (cb) {
+    sjcl.mode.ccm._progressListeners.push(cb);
+  },
+
+  unListenProgress: function (cb) {
+    var index = sjcl.mode.ccm._progressListeners.indexOf(cb);
+    if (index > -1) {
+      sjcl.mode.ccm._progressListeners.splice(index, 1);
+    }
+  },
+
+  _callProgressListener: function (val) {
+    var p = sjcl.mode.ccm._progressListeners.slice(), i;
+
+    for (i = 0; i < p.length; i += 1) {
+      p[i](val);
+    }
+  },
+
   /** Encrypt in CCM mode.
    * @static
    * @param {Object} prf The pseudorandom function.  It must have a block size of 16 bytes.
@@ -1542,39 +1587,16 @@ sjcl.mode.ccm = {
     return out.data;
   },
 
-  /* Compute the (unencrypted) authentication tag, according to the CCM specification
-   * @param {Object} prf The pseudorandom function.
-   * @param {bitArray} plaintext The plaintext data.
-   * @param {bitArray} iv The initialization value.
-   * @param {bitArray} adata The authenticated data.
-   * @param {Number} tlen the desired tag length, in bits.
-   * @return {bitArray} The tag, but not yet encrypted.
-   * @private
-   */
-  _computeTag: function(prf, plaintext, iv, adata, tlen, L) {
-    // compute B[0]
+  _macAdditionalData: function (prf, adata, iv, tlen, ol, L) {
     var mac, tmp, i, macData = [], w=sjcl.bitArray, xor = w._xor4;
-
-    tlen /= 8;
-
-    // check tag length and message length
-    if (tlen % 2 || tlen < 4 || tlen > 16) {
-      throw new sjcl.exception.invalid("ccm: invalid tag length");
-    }
-
-    if (adata.length > 0xFFFFFFFF || plaintext.length > 0xFFFFFFFF) {
-      // I don't want to deal with extracting high words from doubles.
-      throw new sjcl.exception.bug("ccm: can't deal with 4GiB or more data");
-    }
 
     // mac the flags
     mac = [w.partial(8, (adata.length ? 1<<6 : 0) | (tlen-2) << 2 | L-1)];
 
     // mac the iv and length
     mac = w.concat(mac, iv);
-    mac[3] |= w.bitLength(plaintext)/8;
+    mac[3] |= ol;
     mac = prf.encrypt(mac);
-
 
     if (adata.length) {
       // mac the associated data.  start with its length...
@@ -1591,6 +1613,36 @@ sjcl.mode.ccm = {
         mac = prf.encrypt(xor(mac, macData.slice(i,i+4).concat([0,0,0])));
       }
     }
+
+    return mac;
+  },
+
+  /* Compute the (unencrypted) authentication tag, according to the CCM specification
+   * @param {Object} prf The pseudorandom function.
+   * @param {bitArray} plaintext The plaintext data.
+   * @param {bitArray} iv The initialization value.
+   * @param {bitArray} adata The authenticated data.
+   * @param {Number} tlen the desired tag length, in bits.
+   * @return {bitArray} The tag, but not yet encrypted.
+   * @private
+   */
+  _computeTag: function(prf, plaintext, iv, adata, tlen, L) {
+    // compute B[0]
+    var mac, i, w=sjcl.bitArray, xor = w._xor4;
+
+    tlen /= 8;
+
+    // check tag length and message length
+    if (tlen % 2 || tlen < 4 || tlen > 16) {
+      throw new sjcl.exception.invalid("ccm: invalid tag length");
+    }
+
+    if (adata.length > 0xFFFFFFFF || plaintext.length > 0xFFFFFFFF) {
+      // I don't want to deal with extracting high words from doubles.
+      throw new sjcl.exception.bug("ccm: can't deal with 4GiB or more data");
+    }
+
+    mac = sjcl.mode.ccm._macAdditionalData(prf, adata, iv, tlen, w.bitLength(plaintext)/8, L);
 
     // mac the plaintext
     for (i=0; i<plaintext.length; i+=4) {
@@ -1613,7 +1665,7 @@ sjcl.mode.ccm = {
    * @private
    */
   _ctrMode: function(prf, data, iv, tag, tlen, L) {
-    var enc, i, w=sjcl.bitArray, xor = w._xor4, ctr, l = data.length, bl=w.bitLength(data);
+    var enc, i, w=sjcl.bitArray, xor = w._xor4, ctr, l = data.length, bl=w.bitLength(data), n = l/50, p = n;
 
     // start the ctr
     ctr = w.concat([w.partial(8,L-1)],iv).concat([0,0,0]).slice(0,4);
@@ -1625,6 +1677,10 @@ sjcl.mode.ccm = {
     if (!l) { return {tag:tag, data:[]}; }
 
     for (i=0; i<l; i+=4) {
+      if (i > n) {
+        sjcl.mode.ccm._callProgressListener(i/l);
+        n += p;
+      }
       ctr[3]++;
       enc = prf.encrypt(ctr);
       data[i]   ^= enc[0];
@@ -1921,6 +1977,143 @@ sjcl.mode.ocb2 = {
             x[3]<<1 ^ (x[0]>>>31)*0x87];
   }
 };
+/**
+ * OCB2.0 implementation slightly modified by Yifan Gu
+ * to support progressive encryption
+ * @author Yifan Gu
+ */
+
+/** @fileOverview OCB 2.0 implementation
+ *
+ * @author Emily Stark
+ * @author Mike Hamburg
+ * @author Dan Boneh
+ */
+
+/** @namespace
+ * Phil Rogaway's Offset CodeBook mode, version 2.0.
+ * May be covered by US and international patents.
+ *
+ * @author Emily Stark
+ * @author Mike Hamburg
+ * @author Dan Boneh
+ */
+
+sjcl.mode.ocb2progressive = {
+  createEncryptor: function(prp, iv, adata, tlen, premac) {
+    if (sjcl.bitArray.bitLength(iv) !== 128) {
+      throw new sjcl.exception.invalid("ocb iv must be 128 bits");
+    }
+    var i,
+        times2 = sjcl.mode.ocb2._times2,
+        w = sjcl.bitArray,
+        xor = w._xor4,
+        checksum = [0,0,0,0],
+        delta = times2(prp.encrypt(iv)),
+        bi, bl,
+        datacache = [],
+        pad;
+
+    adata = adata || [];
+    tlen  = tlen || 64;
+
+    return {
+      process: function(data){
+        var datalen = sjcl.bitArray.bitLength(data);
+        if (datalen == 0){ // empty input natrually gives empty output
+          return [];
+        }
+        var output = [];
+        datacache = datacache.concat(data);
+        for (i=0; i+4 < datacache.length; i+=4) {
+          /* Encrypt a non-final block */
+          bi = datacache.slice(i,i+4);
+          checksum = xor(checksum, bi);
+          output = output.concat(xor(delta,prp.encrypt(xor(delta, bi))));
+          delta = times2(delta);
+        }
+        datacache = datacache.slice(i); // at end of each process we ensure size of datacache is smaller than 4
+        return output; //spits out the result.
+      },
+      finalize: function(){
+        // the final block
+        bi = datacache;
+        bl = w.bitLength(bi);
+        pad = prp.encrypt(xor(delta,[0,0,0,bl]));
+        bi = w.clamp(xor(bi.concat([0,0,0]),pad), bl);
+
+        /* Checksum the final block, and finalize the checksum */
+        checksum = xor(checksum,xor(bi.concat([0,0,0]),pad));
+        checksum = prp.encrypt(xor(checksum,xor(delta,times2(delta))));
+
+        /* MAC the header */
+        if (adata.length) {
+          checksum = xor(checksum, premac ? adata : sjcl.mode.ocb2.pmac(prp, adata));
+        }
+
+        return w.concat(bi, w.clamp(checksum, tlen)); // spits out the last block
+      }
+    };
+  },
+  createDecryptor: function(prp, iv, adata, tlen, premac){
+    if (sjcl.bitArray.bitLength(iv) !== 128) {
+      throw new sjcl.exception.invalid("ocb iv must be 128 bits");
+    }
+    tlen  = tlen || 64;
+    var i,
+        times2 = sjcl.mode.ocb2._times2,
+        w = sjcl.bitArray,
+        xor = w._xor4,
+        checksum = [0,0,0,0],
+        delta = times2(prp.encrypt(iv)),
+        bi, bl,
+        datacache = [],
+        pad;
+
+    adata = adata || [];
+
+    return {
+      process: function(data){
+        if (data.length == 0){ // empty input natrually gives empty output
+          return [];
+        }
+        var output = [];
+        datacache = datacache.concat(data);
+        var cachelen = sjcl.bitArray.bitLength(datacache);
+        for (i=0; i+4 < (cachelen-tlen)/32; i+=4) {
+          /* Decrypt a non-final block */
+          bi = xor(delta, prp.decrypt(xor(delta, datacache.slice(i,i+4))));
+          checksum = xor(checksum, bi);
+          output = output.concat(bi);
+          delta = times2(delta);
+        }
+        datacache = datacache.slice(i);
+        return output;
+      },
+      finalize: function(){
+        /* Chop out and decrypt the final block */
+        bl = sjcl.bitArray.bitLength(datacache) - tlen;
+        pad = prp.encrypt(xor(delta,[0,0,0,bl]));
+        bi = xor(pad, w.clamp(datacache,bl).concat([0,0,0]));
+
+        /* Checksum the final block, and finalize the checksum */
+        checksum = xor(checksum, bi);
+        checksum = prp.encrypt(xor(checksum, xor(delta, times2(delta))));
+
+        /* MAC the header */
+        if (adata.length) {
+          checksum = xor(checksum, premac ? adata : sjcl.mode.ocb2.pmac(prp, adata));
+        }
+
+        if (!w.equal(w.clamp(checksum, tlen), w.bitSlice(datacache, bl))) {
+          throw new sjcl.exception.corrupt("ocb: tag doesn't match");
+        }
+
+        return w.clamp(bi,bl);
+      }
+    };
+  }
+}
 /** @fileOverview GCM mode implementation.
  *
  * @author Juho Vähä-Herttua
@@ -2222,6 +2415,152 @@ sjcl.misc.pbkdf2 = function (password, salt, count, length, Prff) {
 
   return out;
 };
+/** scrypt Password-Based Key-Derivation Function.
+ *
+ * @param {bitArray|String} password  The password.
+ * @param {bitArray|String} salt      The salt.  Should have lots of entropy.
+ *
+ * @param {Number} [N=16384] CPU/Memory cost parameter.
+ * @param {Number} [r=8]     Block size parameter.
+ * @param {Number} [p=1]     Parallelization parameter.
+ *
+ * @param {Number} [length] The length of the derived key.  Defaults to the
+ *                          output size of the hash function.
+ * @param {Object} [Prff=sjcl.misc.hmac] The pseudorandom function family.
+ *
+ * @return {bitArray} The derived key.
+ */
+sjcl.misc.scrypt = function (password, salt, N, r, p, length, Prff) {
+  var SIZE_MAX = Math.pow(2, 32) - 1,
+      self = sjcl.misc.scrypt;
+
+  N = N || 16384;
+  r = r || 8;
+  p = p || 1;
+
+  if (r * p >= Math.pow(2, 30)) {
+    throw sjcl.exception.invalid("The parameters r, p must satisfy r * p < 2^30");
+  }
+
+  if ((N < 2) || (N & (N - 1) != 0)) {
+    throw sjcl.exception.invalid("The parameter N must be a power of 2.");
+  }
+
+  if (N > SIZE_MAX / 128 / r) {
+    throw sjcl.exception.invalid("N too big.");
+  }
+
+  if (r > SIZE_MAX / 128 / p) {
+    throw sjcl.exception.invalid("r too big.");
+  }
+
+  var blocks = sjcl.misc.pbkdf2(password, salt, 1, p * 128 * r * 8, Prff),
+      len = blocks.length / p;
+
+  self.reverse(blocks);
+
+  for (var i = 0; i < p; i++) {
+    var block = blocks.slice(i * len, (i + 1) * len);
+    self.blockcopy(self.ROMix(block, N), 0, blocks, i * len);
+  }
+
+  self.reverse(blocks);
+
+  return sjcl.misc.pbkdf2(password, blocks, 1, length, Prff);
+}
+
+sjcl.misc.scrypt.salsa20Core = function (word, rounds) {
+  var R = function(a, b) { return (a << b) | (a >>> (32 - b)); }
+  var x = word.slice(0);
+
+  for (var i = rounds; i > 0; i -= 2) {
+    x[ 4] ^= R(x[ 0]+x[12], 7);  x[ 8] ^= R(x[ 4]+x[ 0], 9);
+    x[12] ^= R(x[ 8]+x[ 4],13);  x[ 0] ^= R(x[12]+x[ 8],18);
+    x[ 9] ^= R(x[ 5]+x[ 1], 7);  x[13] ^= R(x[ 9]+x[ 5], 9);
+    x[ 1] ^= R(x[13]+x[ 9],13);  x[ 5] ^= R(x[ 1]+x[13],18);
+    x[14] ^= R(x[10]+x[ 6], 7);  x[ 2] ^= R(x[14]+x[10], 9);
+    x[ 6] ^= R(x[ 2]+x[14],13);  x[10] ^= R(x[ 6]+x[ 2],18);
+    x[ 3] ^= R(x[15]+x[11], 7);  x[ 7] ^= R(x[ 3]+x[15], 9);
+    x[11] ^= R(x[ 7]+x[ 3],13);  x[15] ^= R(x[11]+x[ 7],18);
+    x[ 1] ^= R(x[ 0]+x[ 3], 7);  x[ 2] ^= R(x[ 1]+x[ 0], 9);
+    x[ 3] ^= R(x[ 2]+x[ 1],13);  x[ 0] ^= R(x[ 3]+x[ 2],18);
+    x[ 6] ^= R(x[ 5]+x[ 4], 7);  x[ 7] ^= R(x[ 6]+x[ 5], 9);
+    x[ 4] ^= R(x[ 7]+x[ 6],13);  x[ 5] ^= R(x[ 4]+x[ 7],18);
+    x[11] ^= R(x[10]+x[ 9], 7);  x[ 8] ^= R(x[11]+x[10], 9);
+    x[ 9] ^= R(x[ 8]+x[11],13);  x[10] ^= R(x[ 9]+x[ 8],18);
+    x[12] ^= R(x[15]+x[14], 7);  x[13] ^= R(x[12]+x[15], 9);
+    x[14] ^= R(x[13]+x[12],13);  x[15] ^= R(x[14]+x[13],18);
+  }
+
+  for (i = 0; i < 16; i++) word[i] = x[i]+word[i];
+}
+
+sjcl.misc.scrypt.blockMix = function(blocks) {
+  var X = blocks.slice(-16),
+      out = [],
+      len = blocks.length / 16,
+      self = sjcl.misc.scrypt;
+
+  for (var i = 0; i < len; i++) {
+    self.blockxor(blocks, 16 * i, X, 0, 16);
+    self.salsa20Core(X, 8);
+
+    if ((i & 1) == 0) {
+      self.blockcopy(X, 0, out, 8 * i);
+    } else {
+      self.blockcopy(X, 0, out, 8 * (i^1 + len));
+    }
+  }
+
+  return out;
+}
+
+sjcl.misc.scrypt.ROMix = function(block, N) {
+  var X = block.slice(0),
+      V = [],
+      self = sjcl.misc.scrypt;
+
+  for (var i = 0; i < N; i++) {
+    V.push(X.slice(0));
+    X = self.blockMix(X);
+  }
+
+  for (i = 0; i < N; i++) {
+    var j = X[X.length - 16] & (N - 1);
+
+    self.blockxor(V[j], 0, X, 0);
+    X = self.blockMix(X);
+  }
+
+  return X;
+}
+
+sjcl.misc.scrypt.reverse = function (words) { // Converts Big <-> Little Endian words
+  for (var i in words) {
+    var out = words[i] &  0xFF;
+    out = (out << 8) | (words[i] >>>  8) & 0xFF;
+    out = (out << 8) | (words[i] >>> 16) & 0xFF;
+    out = (out << 8) | (words[i] >>> 24) & 0xFF;
+
+    words[i] = out;
+  }
+}
+
+sjcl.misc.scrypt.blockcopy = function (S, Si, D, Di, len) {
+  var i;
+
+  len = len || (S.length - Si);
+
+  for (i = 0; i < len; i++) D[Di + i] = S[Si + i] | 0;
+}
+
+sjcl.misc.scrypt.blockxor = function(S, Si, D, Di, len) {
+  var i;
+
+  len = len || (S.length - Si);
+
+  for (i = 0; i < len; i++) D[Di + i] = (D[Di + i] ^ S[Si + i]) | 0;
+}
 /** @fileOverview Random number generator.
  *
  * @author Emily Stark
@@ -2801,7 +3140,7 @@ sjcl.random = new sjcl.prng(6);
       plaintext = sjcl.codec.utf8String.toBits(plaintext);
     }
     if (typeof adata === "string") {
-      adata = sjcl.codec.utf8String.toBits(adata);
+      p.adata = adata = sjcl.codec.utf8String.toBits(adata);
     }
     prp = new sjcl.cipher[p.cipher](password);
 
@@ -2810,7 +3149,11 @@ sjcl.random = new sjcl.prng(6);
     rp.key = password;
 
     /* do the encryption */
-    p.ct = sjcl.mode[p.mode].encrypt(prp, plaintext, p.iv, adata, p.ts);
+    if (p.mode === "ccm" && sjcl.arrayBuffer && sjcl.arrayBuffer.ccm && plaintext instanceof ArrayBuffer) {
+      p.ct = sjcl.arrayBuffer.ccm.encrypt(prp, plaintext, p.iv, adata, p.ts);
+    } else {
+      p.ct = sjcl.mode[p.mode].encrypt(prp, plaintext, p.iv, adata, p.ts);
+    }
 
     //return j.encode(j._subtract(p, j.defaults));
     return p;
@@ -2873,7 +3216,11 @@ sjcl.random = new sjcl.prng(6);
     prp = new sjcl.cipher[p.cipher](password);
 
     /* do the decryption */
-    ct = sjcl.mode[p.mode].decrypt(prp, p.ct, p.iv, adata, p.ts);
+    if (p.mode === "ccm" && sjcl.arrayBuffer && sjcl.arrayBuffer.ccm && p.ct instanceof ArrayBuffer) {
+      ct = sjcl.arrayBuffer.ccm.decrypt(prp, p.ct, p.iv, p.tag, adata, p.ts);
+    } else {
+      ct = sjcl.mode[p.mode].decrypt(prp, p.ct, p.iv, adata, p.ts);
+    }
 
     /* return the json data */
     j._add(rp, p);
@@ -2954,11 +3301,11 @@ sjcl.random = new sjcl.prng(6);
       if (!(m=a[i].match(/^\s*(?:(["']?)([a-z][a-z0-9]*)\1)\s*:\s*(?:(-?\d+)|"([a-z0-9+\/%*_.@=\-]*)"|(true|false))$/i))) {
         throw new sjcl.exception.invalid("json decode: this isn't json!");
       }
-      if (m[3]) {
+      if (m[3] != null) {
         out[m[2]] = parseInt(m[3],10);
-      } else if (m[4]) {
-        out[m[2]] = m[2].match(/^(ct|salt|iv)$/) ? sjcl.codec.base64.toBits(m[4]) : unescape(m[4]);
-      } else if (m[5]) {
+      } else if (m[4] != null) {
+        out[m[2]] = m[2].match(/^(ct|adata|salt|iv)$/) ? sjcl.codec.base64.toBits(m[4]) : unescape(m[4]);
+      } else if (m[5] != null) {
         out[m[2]] = m[5] === 'true';
       }
     }
@@ -3060,8 +3407,6 @@ sjcl.misc.cachedPbkdf2 = function (password, obj) {
   c[salt] = c[salt] || sjcl.misc.pbkdf2(password, salt, obj.iter);
   return { key: c[salt].slice(0), salt:salt.slice(0) };
 };
-
-
 /**
  * @constructor
  * Constructs a new bignum from another bignum, a number or a hex string.
@@ -3328,18 +3673,14 @@ sjcl.bn.prototype = {
 
   /** this ^ n.  Uses square-and-multiply.  Normalizes and reduces. */
   power: function(l) {
-    if (typeof(l) === "number") {
-      l = [l];
-    } else if (l.limbs !== undefined) {
-      l = l.normalize().limbs;
-    }
+    l = new sjcl.bn(l).normalize().trim().limbs;
     var i, j, out = new this._class(1), pow = this;
 
     for (i=0; i<l.length; i++) {
       for (j=0; j<this.radix; j++) {
-        if (l[i] & (1<<j)) {
-          out = out.mul(pow);
-        }
+        if (l[i] & (1<<j)) { out = out.mul(pow); }
+        if (i == (l.length - 1) && l[i]>>(j + 1) == 0) { break; }
+
         pow = pow.square();
       }
     }
@@ -3354,14 +3695,184 @@ sjcl.bn.prototype = {
 
   /** this ^ x mod N */
   powermod: function(x, N) {
-    var result = new sjcl.bn(1), a = new sjcl.bn(this), k = new sjcl.bn(x);
-    while (true) {
-      if (k.limbs[0] & 1) { result = result.mulmod(a, N); }
-      k.halveM();
-      if (k.equals(0)) { break; }
-      a = a.mulmod(a, N);
+    x = new sjcl.bn(x);
+    N = new sjcl.bn(N);
+
+    // Jump to montpowermod if possible.
+    if ((N.limbs[0] & 1) == 1) {
+      var montOut = this.montpowermod(x, N);
+
+      if (montOut != false) { return montOut; } // else go to slow powermod
     }
-    return result.normalize().reduce();
+
+    var i, j, l = x.normalize().trim().limbs, out = new this._class(1), pow = this;
+
+    for (i=0; i<l.length; i++) {
+      for (j=0; j<this.radix; j++) {
+        if (l[i] & (1<<j)) { out = out.mulmod(pow, N); }
+        if (i == (l.length - 1) && l[i]>>(j + 1) == 0) { break; }
+
+        pow = pow.mulmod(pow, N);
+      }
+    }
+
+    return out;
+  },
+
+  /** this ^ x mod N with Montomery reduction */
+  montpowermod: function(x, N) {
+    x = new sjcl.bn(x).normalize().trim();
+    N = new sjcl.bn(N);
+
+    var i, j,
+      radix = this.radix,
+      out = new this._class(1),
+      pow = this.copy();
+
+    // Generate R as a cap of N.
+    var R, s, wind, bitsize = x.bitLength();
+
+    R = new sjcl.bn({
+      limbs: N.copy().normalize().trim().limbs.map(function() { return 0; })
+    });
+
+    for (s = this.radix; s > 0; s--) {
+      if (((N.limbs[N.limbs.length - 1] >> s) & 1) == 1) {
+        R.limbs[R.limbs.length - 1] = 1 << s;
+        break;
+      }
+    }
+
+    // Calculate window size as a function of the exponent's size.
+    if (bitsize == 0) {
+      return this;
+    } else if (bitsize < 18)  {
+      wind = 1;
+    } else if (bitsize < 48)  {
+      wind = 3;
+    } else if (bitsize < 144) {
+      wind = 4;
+    } else if (bitsize < 768) {
+      wind = 5;
+    } else {
+      wind = 6;
+    }
+
+    // Find R' and N' such that R * R' - N * N' = 1.
+    var RR = R.copy(), NN = N.copy(), RP = new sjcl.bn(1), NP = new sjcl.bn(0), RT = R.copy();
+
+    while (RT.greaterEquals(1)) {
+      RT.halveM();
+
+      if ((RP.limbs[0] & 1) == 0) {
+        RP.halveM();
+        NP.halveM();
+      } else {
+        RP.addM(NN);
+        RP.halveM();
+
+        NP.halveM();
+        NP.addM(RR);
+      }
+    }
+
+    RP = RP.normalize();
+    NP = NP.normalize();
+
+    RR.doubleM()
+    var R2 = RR.mulmod(RR, N);
+
+    // Check whether the invariant holds.
+    // If it doesn't, we can't use Montgomery reduction on this modulus.
+    if (!RR.mul(RP).sub(N.mul(NP)).equals(1)) {
+      return false;
+    }
+
+    var montIn = function(c) { return montMul(c, R2) },
+    montMul = function(a, b) {
+      // Standard Montgomery reduction
+      var k, carry, ab, right, abBar, mask = (1 << (s + 1)) - 1;
+
+      ab = a.mul(b);
+
+      right = ab.mul(NP);
+      right.limbs = right.limbs.slice(0, R.limbs.length);
+
+      if (right.limbs.length == R.limbs.length) {
+        right.limbs[R.limbs.length - 1] &= mask;
+      }
+
+      right = right.mul(N);
+
+      abBar = ab.add(right).normalize().trim();
+      abBar.limbs = abBar.limbs.slice(R.limbs.length - 1);
+
+      // Division.  Equivelent to calling *.halveM() s times.
+      for (k=0; k < abBar.limbs.length; k++) {
+        if (k > 0) {
+          abBar.limbs[k - 1] |= (abBar.limbs[k] & mask) << (radix - s - 1)
+        }
+
+        abBar.limbs[k] = abBar.limbs[k] >> (s + 1)
+      }
+
+      if (abBar.greaterEquals(N)) {
+        abBar.subM(N)
+      }
+
+      return abBar;
+    },
+    montOut = function(c) { return montMul(c, 1); };
+
+    pow = montIn(pow);
+    out = montIn(out);
+
+    // Sliding-Window Exponentiation (HAC 14.85)
+    var h, precomp = {}, cap = (1 << (wind - 1)) - 1;
+
+    precomp[1] = pow.copy();
+    precomp[2] = montMul(pow, pow);
+
+    for (h=1; h<=cap; h++) {
+      precomp[(2 * h) + 1] = montMul(precomp[(2 * h) - 1], precomp[2]);
+    }
+
+    var getBit = function(exp, i) { // Gets ith bit of exp.
+      var off = i % exp.radix;
+
+      return (exp.limbs[Math.floor(i / exp.radix)] & (1 << off)) >> off;
+    }
+
+    for (i = x.bitLength() - 1; i >= 0; ) {
+      if (getBit(x, i) == 0) {
+        // If the next bit is zero:
+        //   Square, move forward one bit.
+        out = montMul(out, out)
+        i = i - 1;
+      } else {
+        // If the next bit is one:
+        //   Find the longest sequence of bits after this one, less than `wind`
+        //   bits long, that ends with a 1.  Convert the sequence into an
+        //   integer and look up the pre-computed value to add.
+        var l = i - wind + 1;
+
+        while (getBit(x, l) == 0) {
+          l++;
+        }
+
+        var indx = 0;
+        for (j = l; j <= i; j++) {
+          indx += getBit(x, j) << (j - l)
+          out = montMul(out, out);
+        }
+
+        out = montMul(out, precomp[indx])
+
+        i = l - 1;
+      }
+    }
+
+    return montOut(out);
   },
 
   trim: function() {
@@ -3393,6 +3904,9 @@ sjcl.bn.prototype = {
     }
     if (carry === -1) {
       limbs[i-1] -= pv;
+    }
+    while (limbs.length > 0 && limbs[limbs.length-1] === 0) {
+      limbs.pop();
     }
     return this;
   },
@@ -3629,7 +4143,6 @@ sjcl.bn.random = function(modulus, paranoia) {
     }
   }
 };
-
 /**
  * base class for all ecc operations.
  */
@@ -3694,6 +4207,11 @@ sjcl.ecc.point.prototype = {
       }
     }
     return this._multiples;
+  },
+
+  negate: function() {
+    var newY = new this.curve.field(0).sub(this.y).normalize().reduce();
+    return new sjcl.ecc.point(this.curve, this.x, newY);
   },
 
   isValid: function() {
@@ -3867,6 +4385,10 @@ sjcl.ecc.pointJac.prototype = {
     return out;
   },
 
+  negate: function() {
+    return this.toAffine().negate().toJac();
+  },
+
   isValid: function() {
     var z2 = this.z.square(), z4 = z2.square(), z6 = z4.mul(z2);
     return this.y.square().equals(
@@ -3935,6 +4457,14 @@ sjcl.ecc.curves = {
     "0xb3312fa7e23ee7e4988e056be3f82d19181d9c6efe8141120314088f5013875ac656398d8a2ed19d2a85c8edd3ec2aef",
     "0xaa87ca22be8b05378eb1c71ef320ad746e1d3b628ba79b9859f741e082542a385502f25dbf55296c3a545e3872760ab7",
     "0x3617de4a96262c6f5d9e98bf9292dc29f8f41dbd289a147ce9da3113b5f0b8c00a60b1ce1d7e819d7a431d7c90ea0e5f"),
+
+  c521: new sjcl.ecc.curve(
+    sjcl.bn.prime.p521,
+    "0x1FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFA51868783BF2F966B7FCC0148F709A5D03BB5C9B8899C47AEBB6FB71E91386409",
+    -3,
+    "0x051953EB9618E1C9A1F929A21A0B68540EEA2DA725B99B315F3B8B489918EF109E156193951EC7E937B1652C0BD3BB1BF073573DF883D2C34F1EF451FD46B503F00",
+    "0xC6858E06B70404E9CD9E3ECB662395B4429C648139053FB521F828AF606B4D3DBAA14B5E77EFE75928FE1DC127A2FFA8DE3348B3C1856A429BF97E7E31C2E5BD66",
+    "0x11839296A789A3BC0045C8A5FB42C7D1BD998F54449579B446817AFBD17273E662C97EE72995EF42640C550B9013FAD0761353C7086A272C24088BE94769FD16650"),
 
   k192: new sjcl.ecc.curve(
     sjcl.bn.prime.p192k,
@@ -4247,7 +4777,7 @@ sjcl.keyexchange.srp = {
     sjcl.keyexchange.srp._didInitKnownGroups = true;
   },
 
-  _knownGroupSizes: [1024, 1536, 2048],
+  _knownGroupSizes: [1024, 1536, 2048, 3072, 4096, 6144, 8192],
   _knownGroups: {
     1024: {
       N: "EEAF0AB9ADB38DD69C33F80AFA8FC5E86072618775FF3C0B9EA2314C" +
@@ -4281,8 +4811,688 @@ sjcl.keyexchange.srp = {
          "94B5C803D89F7AE435DE236D525F54759B65E372FCD68EF20FA7111F" +
          "9E4AFF73",
       g: 2
+    },
+
+    3072: {
+      N: "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E08" +
+         "8A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B" +
+         "302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9" +
+         "A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE6" +
+         "49286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8" +
+         "FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D" +
+         "670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C" +
+         "180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF695581718" +
+         "3995497CEA956AE515D2261898FA051015728E5A8AAAC42DAD33170D" +
+         "04507A33A85521ABDF1CBA64ECFB850458DBEF0A8AEA71575D060C7D" +
+         "B3970F85A6E1E4C7ABF5AE8CDB0933D71E8C94E04A25619DCEE3D226" +
+         "1AD2EE6BF12FFA06D98A0864D87602733EC86A64521F2B18177B200C" +
+         "BBE117577A615D6C770988C0BAD946E208E24FA074E5AB3143DB5BFC" +
+         "E0FD108E4B82D120A93AD2CAFFFFFFFFFFFFFFFF",
+       g: 5
+    },
+
+    4096: {
+      N: "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E08" +
+        "8A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B" +
+        "302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9" +
+        "A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE6" +
+        "49286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8" +
+        "FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D" +
+        "670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C" +
+        "180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF695581718" +
+        "3995497CEA956AE515D2261898FA051015728E5A8AAAC42DAD33170D" +
+        "04507A33A85521ABDF1CBA64ECFB850458DBEF0A8AEA71575D060C7D" +
+        "B3970F85A6E1E4C7ABF5AE8CDB0933D71E8C94E04A25619DCEE3D226" +
+        "1AD2EE6BF12FFA06D98A0864D87602733EC86A64521F2B18177B200C" +
+        "BBE117577A615D6C770988C0BAD946E208E24FA074E5AB3143DB5BFC" +
+        "E0FD108E4B82D120A92108011A723C12A787E6D788719A10BDBA5B26" +
+        "99C327186AF4E23C1A946834B6150BDA2583E9CA2AD44CE8DBBBC2DB" +
+        "04DE8EF92E8EFC141FBECAA6287C59474E6BC05D99B2964FA090C3A2" +
+        "233BA186515BE7ED1F612970CEE2D7AFB81BDD762170481CD0069127" +
+        "D5B05AA993B4EA988D8FDDC186FFB7DC90A6C08F4DF435C934063199" +
+        "FFFFFFFFFFFFFFFF",
+      g: 5
+    },
+
+    6144: {
+      N: "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E08" +
+        "8A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B" +
+        "302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9" +
+        "A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE6" +
+        "49286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8" +
+        "FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D" +
+        "670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C" +
+        "180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF695581718" +
+        "3995497CEA956AE515D2261898FA051015728E5A8AAAC42DAD33170D" +
+        "04507A33A85521ABDF1CBA64ECFB850458DBEF0A8AEA71575D060C7D" +
+        "B3970F85A6E1E4C7ABF5AE8CDB0933D71E8C94E04A25619DCEE3D226" +
+        "1AD2EE6BF12FFA06D98A0864D87602733EC86A64521F2B18177B200C" +
+        "BBE117577A615D6C770988C0BAD946E208E24FA074E5AB3143DB5BFC" +
+        "E0FD108E4B82D120A92108011A723C12A787E6D788719A10BDBA5B26" +
+        "99C327186AF4E23C1A946834B6150BDA2583E9CA2AD44CE8DBBBC2DB" +
+        "04DE8EF92E8EFC141FBECAA6287C59474E6BC05D99B2964FA090C3A2" +
+        "233BA186515BE7ED1F612970CEE2D7AFB81BDD762170481CD0069127" +
+        "D5B05AA993B4EA988D8FDDC186FFB7DC90A6C08F4DF435C934028492" +
+        "36C3FAB4D27C7026C1D4DCB2602646DEC9751E763DBA37BDF8FF9406" +
+        "AD9E530EE5DB382F413001AEB06A53ED9027D831179727B0865A8918" +
+        "DA3EDBEBCF9B14ED44CE6CBACED4BB1BDB7F1447E6CC254B33205151" +
+        "2BD7AF426FB8F401378CD2BF5983CA01C64B92ECF032EA15D1721D03" +
+        "F482D7CE6E74FEF6D55E702F46980C82B5A84031900B1C9E59E7C97F" +
+        "BEC7E8F323A97A7E36CC88BE0F1D45B7FF585AC54BD407B22B4154AA" +
+        "CC8F6D7EBF48E1D814CC5ED20F8037E0A79715EEF29BE32806A1D58B" +
+        "B7C5DA76F550AA3D8A1FBFF0EB19CCB1A313D55CDA56C9EC2EF29632" +
+        "387FE8D76E3C0468043E8F663F4860EE12BF2D5B0B7474D6E694F91E" +
+        "6DCC4024FFFFFFFFFFFFFFFF",
+      g: 5
+    },
+
+    8192: {
+      N:"FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E08" +
+        "8A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B" +
+        "302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9" +
+        "A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE6" +
+        "49286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8" +
+        "FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D" +
+        "670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C" +
+        "180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF695581718" +
+        "3995497CEA956AE515D2261898FA051015728E5A8AAAC42DAD33170D" +
+        "04507A33A85521ABDF1CBA64ECFB850458DBEF0A8AEA71575D060C7D" +
+        "B3970F85A6E1E4C7ABF5AE8CDB0933D71E8C94E04A25619DCEE3D226" +
+        "1AD2EE6BF12FFA06D98A0864D87602733EC86A64521F2B18177B200C" +
+        "BBE117577A615D6C770988C0BAD946E208E24FA074E5AB3143DB5BFC" +
+        "E0FD108E4B82D120A92108011A723C12A787E6D788719A10BDBA5B26" +
+        "99C327186AF4E23C1A946834B6150BDA2583E9CA2AD44CE8DBBBC2DB" +
+        "04DE8EF92E8EFC141FBECAA6287C59474E6BC05D99B2964FA090C3A2" +
+        "233BA186515BE7ED1F612970CEE2D7AFB81BDD762170481CD0069127" +
+        "D5B05AA993B4EA988D8FDDC186FFB7DC90A6C08F4DF435C934028492" +
+        "36C3FAB4D27C7026C1D4DCB2602646DEC9751E763DBA37BDF8FF9406" +
+        "AD9E530EE5DB382F413001AEB06A53ED9027D831179727B0865A8918" +
+        "DA3EDBEBCF9B14ED44CE6CBACED4BB1BDB7F1447E6CC254B33205151" +
+        "2BD7AF426FB8F401378CD2BF5983CA01C64B92ECF032EA15D1721D03" +
+        "F482D7CE6E74FEF6D55E702F46980C82B5A84031900B1C9E59E7C97F" +
+        "BEC7E8F323A97A7E36CC88BE0F1D45B7FF585AC54BD407B22B4154AA" +
+        "CC8F6D7EBF48E1D814CC5ED20F8037E0A79715EEF29BE32806A1D58B" +
+        "B7C5DA76F550AA3D8A1FBFF0EB19CCB1A313D55CDA56C9EC2EF29632" +
+        "387FE8D76E3C0468043E8F663F4860EE12BF2D5B0B7474D6E694F91E" +
+        "6DBE115974A3926F12FEE5E438777CB6A932DF8CD8BEC4D073B931BA" +
+        "3BC832B68D9DD300741FA7BF8AFC47ED2576F6936BA424663AAB639C" +
+        "5AE4F5683423B4742BF1C978238F16CBE39D652DE3FDB8BEFC848AD9" +
+        "22222E04A4037C0713EB57A81A23F0C73473FC646CEA306B4BCBC886" +
+        "2F8385DDFA9D4B7FA2C087E879683303ED5BDD3A062B3CF5B3A278A6" +
+        "6D2A13F83F44F82DDF310EE074AB6A364597E899A0255DC164F31CC5" +
+        "0846851DF9AB48195DED7EA1B1D510BD7EE74D73FAF36BC31ECFA268" +
+        "359046F4EB879F924009438B481C6CD7889A002ED5EE382BC9190DA6" +
+        "FC026E479558E4475677E9AA9E3050E2765694DFC81F56E880B96E71" +
+        "60C980DD98EDD3DFFFFFFFFFFFFFFFFF",
+      g: 19
     }
   }
 
 };
+/** @fileOverview Really fast & small implementation of CCM using JS' array buffers
+ *
+ * @author Marco Munizaga
+ */
 
+/** @namespace CTR mode with CBC MAC. */
+
+sjcl.arrayBuffer = sjcl.arrayBuffer || {};
+
+//patch arraybuffers if they don't exist
+if (typeof(ArrayBuffer) === 'undefined') {
+  (function(globals){
+      "use strict";
+      globals.ArrayBuffer = function(){};
+      globals.DataView = function(){};
+  }(this));
+}
+
+
+sjcl.arrayBuffer.ccm = {
+  mode: "ccm",
+
+  defaults: {
+    tlen:128 //this is M in the NIST paper
+  },
+
+  /** Encrypt in CCM mode. Meant to return the same exact thing as the bitArray ccm to work as a drop in replacement
+   * @static
+   * @param {Object} prf The pseudorandom function.  It must have a block size of 16 bytes.
+   * @param {bitArray} plaintext The plaintext data.
+   * @param {bitArray} iv The initialization value.
+   * @param {bitArray} [adata=[]] The authenticated data.
+   * @param {Number} [tlen=64] the desired tag length, in bits.
+   * @return {bitArray} The encrypted data, an array of bytes.
+   */
+  compat_encrypt: function(prf, plaintext, iv, adata, tlen){
+    var plaintext_buffer = sjcl.codec.arrayBuffer.fromBits(plaintext, true, 16),
+        ol = sjcl.bitArray.bitLength(plaintext)/8,
+        encrypted_obj,
+        ct,
+        tag;
+
+    tlen = tlen || 64;
+    adata = adata || [];
+
+    encrypted_obj = sjcl.arrayBuffer.ccm.encrypt(prf, plaintext_buffer, iv, adata, tlen, ol);
+    ct = sjcl.codec.arrayBuffer.toBits(encrypted_obj.ciphertext_buffer);
+
+    ct = sjcl.bitArray.clamp(ct, ol*8);
+
+
+    return sjcl.bitArray.concat(ct, encrypted_obj.tag);
+  },
+
+  /** Decrypt in CCM mode. Meant to imitate the bitArray ccm
+   * @static
+   * @param {Object} prf The pseudorandom function.  It must have a block size of 16 bytes.
+   * @param {bitArray} ciphertext The ciphertext data.
+   * @param {bitArray} iv The initialization value.
+   * @param {bitArray} [[]] adata The authenticated data.
+   * @param {Number} [64] tlen the desired tag length, in bits.
+   * @return {bitArray} The decrypted data.
+   */
+  compat_decrypt: function(prf, ciphertext, iv, adata, tlen){
+    tlen = tlen || 64;
+    adata = adata || [];
+    var L, i,
+        w=sjcl.bitArray,
+        ol = w.bitLength(ciphertext),
+        out = w.clamp(ciphertext, ol - tlen),
+        tag = w.bitSlice(ciphertext, ol - tlen), tag2,
+        ciphertext_buffer = sjcl.codec.arrayBuffer.fromBits(out, true, 16);
+
+    var plaintext_buffer = sjcl.arrayBuffer.ccm.decrypt(prf, ciphertext_buffer, iv, tag, adata, tlen, (ol-tlen)/8);
+    return sjcl.bitArray.clamp(sjcl.codec.arrayBuffer.toBits(plaintext_buffer), ol-tlen);
+
+  },
+
+  /** Really fast ccm encryption, uses arraybufer and mutates the plaintext buffer
+   * @static
+   * @param {Object} prf The pseudorandom function.  It must have a block size of 16 bytes.
+   * @param {ArrayBuffer} plaintext_buffer The plaintext data.
+   * @param {bitArray} iv The initialization value.
+   * @param {ArrayBuffer} [adata=[]] The authenticated data.
+   * @param {Number} [tlen=128] the desired tag length, in bits.
+   * @return {ArrayBuffer} The encrypted data, in the same array buffer as the given plaintext, but given back anyways
+   */
+  encrypt: function(prf, plaintext_buffer, iv, adata, tlen, ol){
+    var auth_blocks, mac, L, w = sjcl.bitArray,
+      ivl = w.bitLength(iv) / 8;
+
+    //set up defaults
+    adata = adata || [];
+    tlen = tlen || sjcl.arrayBuffer.ccm.defaults.tlen;
+    ol = ol || plaintext_buffer.byteLength;
+    tlen = Math.ceil(tlen/8);
+
+    for (L=2; L<4 && ol >>> 8*L; L++) {}
+    if (L < 15 - ivl) { L = 15-ivl; }
+    iv = w.clamp(iv,8*(15-L));
+
+    //prf should use a 256 bit key to make precomputation attacks infeasible
+
+    mac = sjcl.arrayBuffer.ccm._computeTag(prf, plaintext_buffer, iv, adata, tlen, ol, L);
+
+    //encrypt the plaintext and the mac
+    //returns the mac since the plaintext will be left encrypted inside the buffer
+    mac = sjcl.arrayBuffer.ccm._ctrMode(prf, plaintext_buffer, iv, mac, tlen, L);
+
+
+    //the plaintext_buffer has been modified so it is now the ciphertext_buffer
+    return {'ciphertext_buffer':plaintext_buffer, 'tag':mac};
+  },
+
+  /** Really fast ccm decryption, uses arraybufer and mutates the given buffer
+   * @static
+   * @param {Object} prf The pseudorandom function.  It must have a block size of 16 bytes.
+   * @param {ArrayBuffer} ciphertext_buffer The Ciphertext data.
+   * @param {bitArray} iv The initialization value.
+   * @param {bitArray} The authentication tag for the ciphertext
+   * @param {ArrayBuffer} [adata=[]] The authenticated data.
+   * @param {Number} [tlen=128] the desired tag length, in bits.
+   * @return {ArrayBuffer} The decrypted data, in the same array buffer as the given buffer, but given back anyways
+   */
+  decrypt: function(prf, ciphertext_buffer, iv, tag, adata, tlen, ol){
+    var mac, mac2, i, L, w = sjcl.bitArray,
+      ivl = w.bitLength(iv) / 8;
+
+    //set up defaults
+    adata = adata || [];
+    tlen = tlen || sjcl.arrayBuffer.ccm.defaults.tlen;
+    ol = ol || ciphertext_buffer.byteLength;
+    tlen = Math.ceil(tlen/8) ;
+
+    for (L=2; L<4 && ol >>> 8*L; L++) {}
+    if (L < 15 - ivl) { L = 15-ivl; }
+    iv = w.clamp(iv,8*(15-L));
+
+    //prf should use a 256 bit key to make precomputation attacks infeasible
+
+    //decrypt the buffer
+    mac = sjcl.arrayBuffer.ccm._ctrMode(prf, ciphertext_buffer, iv, tag, tlen, L);
+
+    mac2 = sjcl.arrayBuffer.ccm._computeTag(prf, ciphertext_buffer, iv, adata, tlen, ol, L);
+
+    //check the tag
+    if (!sjcl.bitArray.equal(mac, mac2)){
+      throw new sjcl.exception.corrupt("ccm: tag doesn't match");
+    }
+
+    return ciphertext_buffer;
+
+  },
+
+  /* Compute the (unencrypted) authentication tag, according to the CCM specification
+   * @param {Object} prf The pseudorandom function.
+   * @param {ArrayBuffer} data_buffer The plaintext data in an arraybuffer.
+   * @param {bitArray} iv The initialization value.
+   * @param {bitArray} adata The authenticated data.
+   * @param {Number} tlen the desired tag length, in bits.
+   * @return {bitArray} The tag, but not yet encrypted.
+   * @private
+   */
+  _computeTag: function(prf, data_buffer, iv, adata, tlen, ol, L){
+    var i, plaintext, mac, data, data_blocks_size, data_blocks,
+      w = sjcl.bitArray, tmp, macData;
+
+    mac = sjcl.mode.ccm._macAdditionalData(prf, adata, iv, tlen, ol, L);
+
+    if (data_buffer.byteLength !== 0) {
+      data = new DataView(data_buffer);
+      //set padding bytes to 0
+      for (i=ol; i< data_buffer.byteLength; i++){
+        data.setUint8(i,0);
+      }
+
+      //now to mac the plaintext blocks
+      for (i=0; i < data.byteLength; i+=16){
+        mac[0] ^= data.getUint32(i);
+        mac[1] ^= data.getUint32(i+4);
+        mac[2] ^= data.getUint32(i+8);
+        mac[3] ^= data.getUint32(i+12);
+
+        mac = prf.encrypt(mac);
+      }
+    }
+
+    return sjcl.bitArray.clamp(mac,tlen*8);
+  },
+
+  /** CCM CTR mode.
+   * Encrypt or decrypt data and tag with the prf in CCM-style CTR mode.
+   * Mutates given array buffer
+   * @param {Object} prf The PRF.
+   * @param {ArrayBuffer} data_buffer The data to be encrypted or decrypted.
+   * @param {bitArray} iv The initialization vector.
+   * @param {bitArray} tag The authentication tag.
+   * @param {Number} tlen The length of th etag, in bits.
+   * @return {Object} An object with data and tag, the en/decryption of data and tag values.
+   * @private
+   */
+  _ctrMode: function(prf, data_buffer, iv, mac, tlen, L){
+    var data, ctr, word0, word1, word2, word3, keyblock, i, w = sjcl.bitArray, xor = w._xor4, n = data_buffer.byteLength/50, p = n;
+
+    ctr = new DataView(new ArrayBuffer(16)); //create the first block for the counter
+
+    //prf should use a 256 bit key to make precomputation attacks infeasible
+
+    // start the ctr
+    ctr = w.concat([w.partial(8,L-1)],iv).concat([0,0,0]).slice(0,4);
+
+    // en/decrypt the tag
+    mac = w.bitSlice(xor(mac,prf.encrypt(ctr)), 0, tlen*8);
+
+    ctr[3]++;
+    if (ctr[3]===0) ctr[2]++; //increment higher bytes if the lowest 4 bytes are 0
+
+    if (data_buffer.byteLength !== 0) {
+      data = new DataView(data_buffer);
+      //now lets encrypt the message
+      for (i=0; i<data.byteLength;i+=16){
+        if (i > n) {
+          sjcl.mode.ccm._callProgressListener(i/data_buffer.byteLength);
+          n += p;
+        }
+        keyblock = prf.encrypt(ctr);
+
+        word0 = data.getUint32(i);
+        word1 = data.getUint32(i+4);
+        word2 = data.getUint32(i+8);
+        word3 = data.getUint32(i+12);
+
+        data.setUint32(i,word0 ^ keyblock[0]);
+        data.setUint32(i+4, word1 ^ keyblock[1]);
+        data.setUint32(i+8, word2 ^ keyblock[2]);
+        data.setUint32(i+12, word3 ^ keyblock[3]);
+
+        ctr[3]++;
+        if (ctr[3]===0) ctr[2]++; //increment higher bytes if the lowest 4 bytes are 0
+      }
+    }
+
+    //return the mac, the ciphered data is available through the same data_buffer that was given
+    return mac;
+  }
+
+};
+/** @fileOverview Bit array codec implementations.
+ *
+ * @author Marco Munizaga
+ */
+
+//patch arraybuffers if they don't exist
+if (typeof(ArrayBuffer) === 'undefined') {
+  (function(globals){
+      "use strict";
+      globals.ArrayBuffer = function(){};
+      globals.DataView = function(){};
+  }(this));
+}
+
+/** @namespace ArrayBuffer */
+sjcl.codec.arrayBuffer = {
+  /** Convert from a bitArray to an ArrayBuffer.
+   * Will default to 8byte padding if padding is undefined*/
+  fromBits: function (arr, padding, padding_count) {
+    var out, i, ol, tmp, smallest;
+    padding = padding==undefined  ? true : padding
+    padding_count = padding_count || 8
+
+    if (arr.length === 0) {
+      return new ArrayBuffer(0);
+    }
+
+    ol = sjcl.bitArray.bitLength(arr)/8;
+
+    //check to make sure the bitLength is divisible by 8, if it isn't
+    //we can't do anything since arraybuffers work with bytes, not bits
+    if ( sjcl.bitArray.bitLength(arr)%8 !== 0 ) {
+      throw new sjcl.exception.invalid("Invalid bit size, must be divisble by 8 to fit in an arraybuffer correctly")
+    }
+
+    if (padding && ol%padding_count !== 0){
+      ol += padding_count - (ol%padding_count);
+    }
+
+
+    //padded temp for easy copying
+    tmp = new DataView(new ArrayBuffer(arr.length*4));
+    for (i=0; i<arr.length; i++) {
+      tmp.setUint32(i*4, (arr[i]<<32)); //get rid of the higher bits
+    }
+
+    //now copy the final message if we are not going to 0 pad
+    out = new DataView(new ArrayBuffer(ol));
+
+    //save a step when the tmp and out bytelength are ===
+    if (out.byteLength === tmp.byteLength){
+      return tmp.buffer;
+    }
+
+    smallest = tmp.byteLength < out.byteLength ? tmp.byteLength : out.byteLength;
+    for(i=0; i<smallest; i++){
+      out.setUint8(i,tmp.getUint8(i));
+    }
+
+
+    return out.buffer
+  },
+
+  toBits: function (buffer) {
+    var i, out=[], len, inView, tmp;
+
+    if (buffer.byteLength === 0) {
+      return [];
+    }
+
+    inView = new DataView(buffer);
+    len = inView.byteLength - inView.byteLength%4;
+
+    for (var i = 0; i < len; i+=4) {
+      out.push(inView.getUint32(i));
+    }
+
+    if (inView.byteLength%4 != 0) {
+      tmp = new DataView(new ArrayBuffer(4));
+      for (var i = 0, l = inView.byteLength%4; i < l; i++) {
+        //we want the data to the right, because partial slices off the starting bits
+        tmp.setUint8(i+4-l, inView.getUint8(len+i)); // big-endian,
+      }
+      out.push(
+        sjcl.bitArray.partial( (inView.byteLength%4)*8, tmp.getUint32(0) )
+      );
+    }
+    return out;
+  },
+
+
+
+  /** Prints a hex output of the buffer contents, akin to hexdump **/
+  hexDumpBuffer: function(buffer){
+      var stringBufferView = new DataView(buffer)
+      var string = ''
+      var pad = function (n, width) {
+          n = n + '';
+          return n.length >= width ? n : new Array(width - n.length + 1).join('0') + n;
+      }
+
+      for (var i = 0; i < stringBufferView.byteLength; i+=2) {
+          if (i%16 == 0) string += ('\n'+(i).toString(16)+'\t')
+          string += ( pad(stringBufferView.getUint16(i).toString(16),4) + ' ')
+      }
+
+      if ( typeof console === undefined ){
+        console = console || {log:function(){}} //fix for IE
+      }
+      console.log(string.toUpperCase())
+  }
+};
+
+/** @fileOverview Javascript RIPEMD-160 implementation.
+ *
+ * @author Artem S Vybornov <vybornov@gmail.com>
+ */
+(function() {
+
+/**
+ * Context for a RIPEMD-160 operation in progress.
+ * @constructor
+ * @class RIPEMD, 160 bits.
+ */
+sjcl.hash.ripemd160 = function (hash) {
+    if (hash) {
+        this._h = hash._h.slice(0);
+        this._buffer = hash._buffer.slice(0);
+        this._length = hash._length;
+    } else {
+        this.reset();
+    }
+};
+
+/**
+ * Hash a string or an array of words.
+ * @static
+ * @param {bitArray|String} data the data to hash.
+ * @return {bitArray} The hash value, an array of 5 big-endian words.
+ */
+sjcl.hash.ripemd160.hash = function (data) {
+  return (new sjcl.hash.ripemd160()).update(data).finalize();
+};
+
+sjcl.hash.ripemd160.prototype = {
+    /**
+     * Reset the hash state.
+     * @return this
+     */
+    reset: function () {
+        this._h = _h0.slice(0);
+        this._buffer = [];
+        this._length = 0;
+        return this;
+    },
+
+    /**
+     * Reset the hash state.
+     * @param {bitArray|String} data the data to hash.
+     * @return this
+     */
+    update: function (data) {
+        if ( typeof data === "string" )
+            data = sjcl.codec.utf8String.toBits(data);
+
+        var i, b = this._buffer = sjcl.bitArray.concat(this._buffer, data),
+            ol = this._length,
+            nl = this._length = ol + sjcl.bitArray.bitLength(data);
+        for (i = 512+ol & -512; i <= nl; i+= 512) {
+            var words = b.splice(0,16);
+            for ( var w = 0; w < 16; ++w )
+                words[w] = _cvt(words[w]);
+
+            _block.call( this, words );
+        }
+
+        return this;
+    },
+
+    /**
+     * Complete hashing and output the hash value.
+     * @return {bitArray} The hash value, an array of 5 big-endian words.
+     */
+    finalize: function () {
+        var b = sjcl.bitArray.concat( this._buffer, [ sjcl.bitArray.partial(1,1) ] ),
+            l = ( this._length + 1 ) % 512,
+            z = ( l > 448 ? 512 : 448 ) - l % 448,
+            zp = z % 32;
+
+        if ( zp > 0 )
+            b = sjcl.bitArray.concat( b, [ sjcl.bitArray.partial(zp,0) ] )
+        for ( ; z >= 32; z -= 32 )
+            b.push(0);
+
+        b.push( _cvt( this._length | 0 ) );
+        b.push( _cvt( Math.floor(this._length / 0x100000000) ) );
+
+        while ( b.length ) {
+            var words = b.splice(0,16);
+            for ( var w = 0; w < 16; ++w )
+                words[w] = _cvt(words[w]);
+
+            _block.call( this, words );
+        }
+
+        var h = this._h;
+        this.reset();
+
+        for ( var w = 0; w < 5; ++w )
+            h[w] = _cvt(h[w]);
+
+        return h;
+    }
+};
+
+var _h0 = [ 0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476, 0xc3d2e1f0 ];
+
+var _k1 = [ 0x00000000, 0x5a827999, 0x6ed9eba1, 0x8f1bbcdc, 0xa953fd4e ];
+var _k2 = [ 0x50a28be6, 0x5c4dd124, 0x6d703ef3, 0x7a6d76e9, 0x00000000 ];
+for ( var i = 4; i >= 0; --i ) {
+    for ( var j = 1; j < 16; ++j ) {
+        _k1.splice(i,0,_k1[i]);
+        _k2.splice(i,0,_k2[i]);
+    }
+}
+
+var _r1 = [  0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15,
+             7,  4, 13,  1, 10,  6, 15,  3, 12,  0,  9,  5,  2, 14, 11,  8,
+             3, 10, 14,  4,  9, 15,  8,  1,  2,  7,  0,  6, 13, 11,  5, 12,
+             1,  9, 11, 10,  0,  8, 12,  4, 13,  3,  7, 15, 14,  5,  6,  2,
+             4,  0,  5,  9,  7, 12,  2, 10, 14,  1,  3,  8, 11,  6, 15, 13 ];
+var _r2 = [  5, 14,  7,  0,  9,  2, 11,  4, 13,  6, 15,  8,  1, 10,  3, 12,
+             6, 11,  3,  7,  0, 13,  5, 10, 14, 15,  8, 12,  4,  9,  1,  2,
+            15,  5,  1,  3,  7, 14,  6,  9, 11,  8, 12,  2, 10,  0,  4, 13,
+             8,  6,  4,  1,  3, 11, 15,  0,  5, 12,  2, 13,  9,  7, 10, 14,
+            12, 15, 10,  4,  1,  5,  8,  7,  6,  2, 13, 14,  0,  3,  9, 11 ];
+
+var _s1 = [ 11, 14, 15, 12,  5,  8,  7,  9, 11, 13, 14, 15,  6,  7,  9,  8,
+             7,  6,  8, 13, 11,  9,  7, 15,  7, 12, 15,  9, 11,  7, 13, 12,
+            11, 13,  6,  7, 14,  9, 13, 15, 14,  8, 13,  6,  5, 12,  7,  5,
+            11, 12, 14, 15, 14, 15,  9,  8,  9, 14,  5,  6,  8,  6,  5, 12,
+             9, 15,  5, 11,  6,  8, 13, 12,  5, 12, 13, 14, 11,  8,  5,  6 ];
+var _s2 = [  8,  9,  9, 11, 13, 15, 15,  5,  7,  7,  8, 11, 14, 14, 12,  6,
+             9, 13, 15,  7, 12,  8,  9, 11,  7,  7, 12,  7,  6, 15, 13, 11,
+             9,  7, 15, 11,  8,  6,  6, 14, 12, 13,  5, 14, 13, 13,  7,  5,
+            15,  5,  8, 11, 14, 14,  6, 14,  6,  9, 12,  9, 12,  5, 15,  8,
+             8,  5, 12,  9, 12,  5, 14,  6,  8, 13,  6,  5, 15, 13, 11, 11 ];
+
+function _f0(x,y,z) {
+    return x ^ y ^ z;
+};
+
+function _f1(x,y,z) {
+    return (x & y) | (~x & z);
+};
+
+function _f2(x,y,z) {
+    return (x | ~y) ^ z;
+};
+
+function _f3(x,y,z) {
+    return (x & z) | (y & ~z);
+};
+
+function _f4(x,y,z) {
+    return x ^ (y | ~z);
+};
+
+function _rol(n,l) {
+    return (n << l) | (n >>> (32-l));
+}
+
+function _cvt(n) {
+    return ( (n & 0xff <<  0) <<  24 )
+         | ( (n & 0xff <<  8) <<   8 )
+         | ( (n & 0xff << 16) >>>  8 )
+         | ( (n & 0xff << 24) >>> 24 );
+}
+
+function _block(X) {
+    var A1 = this._h[0], B1 = this._h[1], C1 = this._h[2], D1 = this._h[3], E1 = this._h[4],
+        A2 = this._h[0], B2 = this._h[1], C2 = this._h[2], D2 = this._h[3], E2 = this._h[4];
+
+    var j = 0, T;
+
+    for ( ; j < 16; ++j ) {
+        T = _rol( A1 + _f0(B1,C1,D1) + X[_r1[j]] + _k1[j], _s1[j] ) + E1;
+        A1 = E1; E1 = D1; D1 = _rol(C1,10); C1 = B1; B1 = T;
+        T = _rol( A2 + _f4(B2,C2,D2) + X[_r2[j]] + _k2[j], _s2[j] ) + E2;
+        A2 = E2; E2 = D2; D2 = _rol(C2,10); C2 = B2; B2 = T; }
+    for ( ; j < 32; ++j ) {
+        T = _rol( A1 + _f1(B1,C1,D1) + X[_r1[j]] + _k1[j], _s1[j] ) + E1;
+        A1 = E1; E1 = D1; D1 = _rol(C1,10); C1 = B1; B1 = T;
+        T = _rol( A2 + _f3(B2,C2,D2) + X[_r2[j]] + _k2[j], _s2[j] ) + E2;
+        A2 = E2; E2 = D2; D2 = _rol(C2,10); C2 = B2; B2 = T; }
+    for ( ; j < 48; ++j ) {
+        T = _rol( A1 + _f2(B1,C1,D1) + X[_r1[j]] + _k1[j], _s1[j] ) + E1;
+        A1 = E1; E1 = D1; D1 = _rol(C1,10); C1 = B1; B1 = T;
+        T = _rol( A2 + _f2(B2,C2,D2) + X[_r2[j]] + _k2[j], _s2[j] ) + E2;
+        A2 = E2; E2 = D2; D2 = _rol(C2,10); C2 = B2; B2 = T; }
+    for ( ; j < 64; ++j ) {
+        T = _rol( A1 + _f3(B1,C1,D1) + X[_r1[j]] + _k1[j], _s1[j] ) + E1;
+        A1 = E1; E1 = D1; D1 = _rol(C1,10); C1 = B1; B1 = T;
+        T = _rol( A2 + _f1(B2,C2,D2) + X[_r2[j]] + _k2[j], _s2[j] ) + E2;
+        A2 = E2; E2 = D2; D2 = _rol(C2,10); C2 = B2; B2 = T; }
+    for ( ; j < 80; ++j ) {
+        T = _rol( A1 + _f4(B1,C1,D1) + X[_r1[j]] + _k1[j], _s1[j] ) + E1;
+        A1 = E1; E1 = D1; D1 = _rol(C1,10); C1 = B1; B1 = T;
+        T = _rol( A2 + _f0(B2,C2,D2) + X[_r2[j]] + _k2[j], _s2[j] ) + E2;
+        A2 = E2; E2 = D2; D2 = _rol(C2,10); C2 = B2; B2 = T; }
+
+    T = this._h[1] + C1 + D2;
+    this._h[1] = this._h[2] + D1 + E2;
+    this._h[2] = this._h[3] + E1 + A2;
+    this._h[3] = this._h[4] + A1 + B2;
+    this._h[4] = this._h[0] + B1 + C2;
+    this._h[0] = T;
+}
+
+})();
