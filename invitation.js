@@ -18,6 +18,9 @@ define([
             var self = this,
                 space;
             return XMPP.connection.Crypho.acceptInvitation(this.get('uid')).done(function (spaceId) {
+                if (self.collection) {
+                    self.collection.remove(self);
+                }
                 var onSpaceCreated = function (space) {
                     if (spaceId === space.id) {
                         space.infostream.createActionItem({}, 'spaceCreated');
