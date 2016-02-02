@@ -25,7 +25,7 @@ define([
         },
 
         createActionItem: function (data, type) {
-            var now = new Date(),
+            var now = globals.serverTime(),
                 item = {
                     content: data,
                     author: globals.me.bareJID(),
