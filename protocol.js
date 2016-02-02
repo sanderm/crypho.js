@@ -466,8 +466,20 @@ define([
                 d.resolve(matches);
             }, d.reject);
             return d.promise();
+        },
 
+        syncTime: function () {
+            var d = $.Deferred(),
+                clientRequestTransmission = new Date().getTime(),
+                iq = this._createIQ('syncTime', {type: 'get'})
+                    .c('timestamp').t(clientRequestTransmission);
+            this._connection.sendIQ(iq.tree(), function (res) {
+                var clientResponseReception = new Date().getTime();
+                var serverRequestReception = parseInt($('timestamp', res).text(), 10);
+                var offset = serverRequestReception - (clientRequestTransmission + clientResponseReception)/2;
+                d.resolve(offset);
+            }, d.reject);
+            return d.promise();
         }
-
     });
 });
