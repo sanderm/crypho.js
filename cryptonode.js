@@ -40,6 +40,9 @@ define([
             this.clear({silent: true});
             this.set(JSON.parse(globals.husher.decrypt(payload, key)));
             this.set({id: id}, {silent: true});
+            if (this.collection) {
+                this.collection.sort();
+            }
         },
 
         save: function () {
