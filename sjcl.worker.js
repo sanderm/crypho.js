@@ -40,8 +40,6 @@ var encryptBinary = function (password, plaintext, params) {
         p.salt = tmp.salt;
     }
 
-    plaintext = sjcl.codec.bytes.toBits(plaintext);
-
     if (typeof adata === "string") {
         adata = sjcl.codec.utf8String.toBits(adata);
     }
@@ -53,7 +51,6 @@ var encryptBinary = function (password, plaintext, params) {
 
     /* do the encryption */
     ct = sjcl.mode[p.mode].encrypt(prp, plaintext, p.iv, adata, p.ts);
-    ct = sjcl.codec.bytes.fromBits(ct);
     return {params: j.encode(p), ct: ct};
 };
 
@@ -89,8 +86,6 @@ var decryptBinary = function (password, ciphertext, params) {
     }
 
     prp = new sjcl.cipher[p.cipher](password);
-
-    ciphertext = sjcl.codec.bytes.toBits(ciphertext);
 
     /* do the decryption */
     ct = sjcl.mode[p.mode].decrypt(prp, ciphertext, p.iv, adata, p.ts);

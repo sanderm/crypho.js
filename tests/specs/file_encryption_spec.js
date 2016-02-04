@@ -44,13 +44,16 @@ define(['crypho/husher', 'crypho/sjcl'], function (husher, sjcl) {
             var dataview = new DataView(arrayBuffer);
             var byteArray = new Uint8Array(arrayBuffer.byteLength);
             var reader = new window.FileReader();
+            var bitArray;
             var blob;
             var i;
 
             for (i=0 ; i < byteArray.length; i++) {
                 byteArray[i] = dataview.getUint8(i);
             }
-            h.encryptBinary(byteArray, key, 'foo@bar.com')
+            bitArray = husher._bytes.toBits(byteArray);
+
+            h.encryptBinary(bitArray, key, 'foo@bar.com')
             .done(function (r) {
                 console.log(new Date().getTime() - time);
                 var params = r.params;
