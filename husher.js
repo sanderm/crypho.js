@@ -1,4 +1,4 @@
-define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (sjcl, _, Backbone, $, Sweatshop) {
+define(['./sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (sjcl, _, Backbone, $, Sweatshop) {
 
     var husher = {
 
@@ -8,6 +8,8 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
         _hex: sjcl.codec.hex,
         _bytes: sjcl.codec.bytes,
         _hash: sjcl.hash.sha256.hash,
+
+        _OCB2Slice: 1048576,
 
         _versions: {
             1: {
@@ -154,6 +156,41 @@ define(['sjcl', 'underscore' , 'backbone', 'jquery', './sweatshop'], function (s
         decryptBinary: function (ct, key, params) {
             var p = husher.sweatshop.queue('sjcl', 'decryptBinary',
                 [key, ct, _.extend(params, husher._versions[params.v])]);
+            return p;
+        },
+
+        encryptBinaryProgressive: function (pt, key, adata) {
+            if (typeof key === "string") {
+                key = husher._b64.toBits(key);
+            }
+            if (typeof adata === "string") {
+                try {
+                    adata = husher._b64.toBits(adata);
+                } catch (e) {
+                    adata = husher._utf8.toBits(adata);
+                }
+            }
+
+            var iv = husher._getRandomWords(4);
+            var p = husher.sweatshop.queue('sjcl', 'encryptBinaryProgressive', [pt, key, iv, adata]);
+            return p;
+        },
+
+        decryptBinaryProgressive: function (pt, key, iv, adata) {
+            if (typeof key === "string") {
+                key = husher._b64.toBits(key);
+            }
+            if (typeof iv === "string") {
+                iv = husher._b64.toBits(iv);
+            }
+            if (typeof adata === "string") {
+                try {
+                    adata = husher._b64.toBits(adata);
+                } catch (e) {
+                    adata = husher._utf8.toBits(adata);
+                }
+            }
+            var p = husher.sweatshop.queue('sjcl', 'decryptBinaryProgressive', [pt, key, iv, adata]);
             return p;
         },
 

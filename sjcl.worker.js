@@ -1,5 +1,7 @@
 /* global sjcl, self */
-importScripts('sjcl.js');
+importScripts('./sjcl.js');
+
+var _OCB2Slice = 1024;
 
 var encryptBinary = function (password, plaintext, params) {
     params = params || {};
@@ -38,8 +40,6 @@ var encryptBinary = function (password, plaintext, params) {
         p.salt = tmp.salt;
     }
 
-    plaintext = sjcl.codec.bytes.toBits(plaintext);
-
     if (typeof adata === "string") {
         adata = sjcl.codec.utf8String.toBits(adata);
     }
@@ -51,7 +51,6 @@ var encryptBinary = function (password, plaintext, params) {
 
     /* do the encryption */
     ct = sjcl.mode[p.mode].encrypt(prp, plaintext, p.iv, adata, p.ts);
-    ct = sjcl.codec.bytes.fromBits(ct);
     return {params: j.encode(p), ct: ct};
 };
 
@@ -88,11 +87,47 @@ var decryptBinary = function (password, ciphertext, params) {
 
     prp = new sjcl.cipher[p.cipher](password);
 
-    ciphertext = sjcl.codec.bytes.toBits(ciphertext);
-
     /* do the decryption */
     ct = sjcl.mode[p.mode].decrypt(prp, ciphertext, p.iv, adata, p.ts);
     return sjcl.codec.bytes.fromBits(ct);
+};
+
+var encryptBinaryProgressive = function (pt, key, iv, adata) {
+    var index = 0;
+    var ct = [];
+    var prp = new sjcl.cipher.aes(key);
+    var encryptor = sjcl.mode.ocb2progressive.createEncryptor(prp, iv, adata);
+
+    // Array.prototype.push.apply(arr1, arr2) essentially concats the two arrays
+    // It's an optimization over concat as it avoids creating an extra array.
+
+    while (index < pt.length) {
+        ct.push.apply(ct, encryptor.process(pt.slice(index, index + _OCB2Slice)));
+        index += _OCB2Slice;
+    }
+    ct.push.apply(ct, encryptor.finalize());
+    return {
+        ct: ct,
+        params: {
+            ocb2: true,
+            iv: sjcl.codec.base64.fromBits(iv),
+            adata: sjcl.codec.base64.fromBits(adata)
+        },
+    };
+};
+
+var decryptBinaryProgresive = function (ct, key, iv, adata) {
+    var index = 0;
+    var pt = [];
+    var prp = new sjcl.cipher.aes(key);
+    var decryptor = sjcl.mode.ocb2progressive.createDecryptor(prp, iv, adata);
+    var block;
+    while (index < ct.length) {
+        pt.push.apply(pt, decryptor.process(ct.slice(index, index + _OCB2Slice)));
+        index += _OCB2Slice;
+    }
+    pt.push.apply(pt, decryptor.finalize());
+    return pt;
 };
 
 var scrypt = function (passwd, options) {
@@ -109,6 +144,13 @@ self.addEventListener('message', function (ev) {
         case 'decryptBinary':
             self.postMessage(decryptBinary.apply(self, data.args));
             break;
+        case 'encryptBinaryProgressive':
+            self.postMessage(encryptBinaryProgressive.apply(self, data.args));
+            break;
+        case 'decryptBinaryProgressive':
+            self.postMessage(decryptBinaryProgresive.apply(self, data.args));
+            break;
+
         case 'scrypt':
             self.postMessage(scrypt.apply(self, data.args));
             break;
