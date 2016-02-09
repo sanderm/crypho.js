@@ -68,6 +68,11 @@ define([
             return this.get('vCard').FN || this.userID();
         },
 
+        orgname: function () {
+            var vCard = this.get('vCard');
+            return vCard.ORG && vCard.ORG.ORGNAME || '';
+        },
+
         email: function () {
             return this.get('vCard').EMAIL.USERID;
         },
