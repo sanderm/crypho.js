@@ -112,21 +112,6 @@ define(['crypho/husher', 'crypho/sjcl'], function (husher, sjcl) {
             expect(h.verify(key, result.signature, h.signingKey.pub)).toBeTruthy();
         });
 
-        it('can serialize the cryptosystem to JSON and back with the legacy JSON formatter', function (done) {
-            var h2, json, res;
-            json = h._legacyToJSON('foo@bar.com');
-
-            h2 = new husher.Husher();
-            h2._legacyFromJSON('secret', json)
-            .done(function () {
-                res = h.encrypt('foo', h.encryptionKey.pub);
-                expect(h2.decrypt(res, h2.encryptionKey.sec)).toEqual('foo');
-                res = h2.encrypt('foo', h2.encryptionKey.pub);
-                expect(h.decrypt(res, h.encryptionKey.sec)).toEqual('foo');
-                done();
-            });
-        });
-
         it('can serialize the cryptosystem to JSON and back with the JSON formatter', function (done) {
             var h2, json, res;
             json = h.toJSON('foo@bar.com');
@@ -145,27 +130,6 @@ define(['crypho/husher', 'crypho/sjcl'], function (husher, sjcl) {
                 expect(h.verify('foo', res)).toBeTruthy();
                 done();
             });
-        });
-
-        it('will use the legacy JSON formatter when appropriate', function (done) {
-
-            var h = new husher.Husher(),
-                h2 = new husher.Husher(),
-                json;
-
-            spyOn(h, '_legacyToJSON').and.callThrough();
-            spyOn(h2, '_legacyFromJSON').and.callThrough();
-
-            h.generate('secret', 'foo@bar.com').done(function () {
-                delete h.signingKey;
-                json = h.toJSON('foo@bar.com');
-                expect(h._legacyToJSON).toHaveBeenCalled();
-                h2.fromJSON('secret', json).done(function () {
-                    expect(h2._legacyFromJSON).toHaveBeenCalled();
-                    done();
-                });
-            });
-
         });
 
         it('can save and load a session in JSON format', function () {
