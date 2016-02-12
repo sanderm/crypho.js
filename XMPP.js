@@ -71,7 +71,7 @@ define([
             }
         };
 
-        this.debug = false;
+        this.debug = true;
 
         this.logStanzas = function (elem, io) {
             if (this.debug) {
