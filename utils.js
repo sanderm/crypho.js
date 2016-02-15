@@ -14,6 +14,7 @@ define([
                 console.log(name + ' ' + d.state() + ' in ' + elapsed + 'msec');
                 delete _startedOn[name];
             });
+            return d;
         }
     };
     return exports;
