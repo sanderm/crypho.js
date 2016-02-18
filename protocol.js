@@ -439,6 +439,16 @@ define([
             return d.promise();
         },
 
+        getInvoices: function () {
+            var d = $.Deferred(),
+                iq = this._createIQ('account', {type: 'get'})
+                    .c('invoices');
+            this._connection.sendIQ(iq.tree(), function (response) {
+                d.resolve(JSON.parse($('invoices', response).text()));
+            }, d.reject);
+            return d.promise();
+        },
+
         getDevices: function () {
             var d = $.Deferred(),
                 iq = this._createIQ('devices', {type: 'get'});
