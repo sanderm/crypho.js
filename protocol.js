@@ -490,6 +490,14 @@ define([
                 d.resolve(offset);
             }, d.reject);
             return d.promise();
-        }
+        },
+
+        report: function (payload) {
+            var d = $.Deferred(),
+                iq = this._createIQ('report')
+                    .t(JSON.stringify(payload));
+            this._connection.sendIQ(iq.tree(), d.resolve, d.reject);
+            return d.promise();
+        },
     });
 });
