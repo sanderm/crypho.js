@@ -74,7 +74,7 @@ define([
         },
 
         email: function () {
-            return this.get('vCard').EMAIL.USERID;
+            return this.get('vCard').EMAIL && this.get('vCard').EMAIL.USERID || '';
         },
 
         avatar: function () {
