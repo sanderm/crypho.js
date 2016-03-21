@@ -34,6 +34,22 @@ define([
                     type: type
                 };
             return this.create(item, {wait: true});
+        },
+
+        trancript: function () {
+            var d = $.Deferred(),
+                self = this;
+            var fp = function () {
+                self.fetchProgressive().done(function () {
+                    if (self._rsm.last ==='') {
+                        d.resolve(self.models);
+                    } else {
+                        fp();
+                    }
+                });
+            };
+            fp();
+            return d;
         }
     });
 
