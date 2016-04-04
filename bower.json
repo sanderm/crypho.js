@@ -1,10 +1,10 @@
 {
   "name": "crypho.js",
-  "version": "0.0.1",
+  "version": "2.6.5",
   "authors": [
     "Yiorgis Gozadinos <ggozad@crypho.com>"
   ],
-  "description": "Crypho AS js framework",
+  "description": "Core components for the Crypho web, mobile and desktop apps.",
   "moduleType": [
     "amd"
   ],
@@ -18,8 +18,8 @@
     "jasmine": "",
     "requirejs": "2.1.15"
   },
-  "license": "Private",
-  "private": true,
+  "license": "GPL-3.0",
+  "private": false,
   "ignore": [
     "**/.*",
     "node_modules",
