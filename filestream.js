@@ -13,7 +13,11 @@ define([
     });
 
     FileStream.FileStream = CryptoNode.CryptoNode.extend({
-        model: FileStream.FileStreamItem
+        model: FileStream.FileStreamItem,
+
+        comparator: function (item) {
+            return -(new Date(item.get('updated')).getTime());
+        },
     });
 
     return FileStream;
