@@ -209,6 +209,14 @@ define([
                 $.when.apply(this, user_promises).fail(function () {
                     d.reject();
                 });
+
+                // Clean up localStorage cache
+                _.forEach(User.store.keys(), function (user) {
+                    if (!roster[user] && user!==globals.me.id ) {
+                        User.store.remove(user);
+                    }
+                });
+
             });
             rosterPromise.fail(d.reject);
             return d.promise();
