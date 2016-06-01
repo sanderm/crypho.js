@@ -1,6 +1,11 @@
-define (['jquery', 'strophe'], function ($, Strophe) {
+define (['jquery', 'strophe'], function ($, wrapper) {
+    var Strophe = wrapper.Strophe;
     Strophe.Bosh.prototype._processRequest = function (i) {};
+
     return {
+        Strophe: Strophe,
+        $iq: wrapper.$iq,
+
         jquerify: function (builder) {
             var xml = '';
             if (builder.tree) {

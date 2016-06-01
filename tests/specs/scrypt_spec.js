@@ -1,5 +1,4 @@
 define(['underscore', 'crypho/sjcl'], function (_, sjcl) {
-
     describe('Scrypt', function () {
 
         var tests = [

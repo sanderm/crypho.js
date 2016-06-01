@@ -6,6 +6,9 @@ define([
     'crypho/husher',
     'crypho/protocol' ], function ($, _, xmppMocker,  globals, husher) {
 
+    var Strophe = xmppMocker.Strophe,
+        $iq = xmppMocker.$iq;
+
     var NS_CRYPHO = 'http://crypho.com/ns/crypho';
     var NS_JABBER_CLIENT = 'jabber:client';
     var IQ_TYPES = {SET:'set', GET:'get'};

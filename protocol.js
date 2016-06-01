@@ -5,8 +5,10 @@ define([
     'strophe',
     './husher',
     'globals'
-    ], function ($, _, Backbone, Strophe, husher, globals) {
+    ], function ($, _, Backbone, wrapper, husher, globals) {
 
+    var Strophe = wrapper.Strophe,
+        $iq = wrapper.$iq;
 
     Strophe.addConnectionPlugin('Crypho', {
 
