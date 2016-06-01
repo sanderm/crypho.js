@@ -25,8 +25,8 @@ require.config({
     },
 });
 
-
 require([
+        'xmppMocker',
         'specs/sweatshop_spec',
         'specs/husher_spec',
         'specs/scrypt_spec',

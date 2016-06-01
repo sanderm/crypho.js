@@ -1,26 +1,26 @@
 define (['jquery', 'strophe'], function ($, wrapper) {
-    var Strophe = wrapper.Strophe;
-    Strophe.Bosh.prototype._processRequest = function (i) {};
+
+    wrapper.Strophe.Bosh.prototype._processRequest = function (i) {};
 
     return {
-        Strophe: Strophe,
+        Strophe: wrapper.Strophe,
         $iq: wrapper.$iq,
 
         jquerify: function (builder) {
             var xml = '';
             if (builder.tree) {
-                xml = Strophe.serialize(builder.tree());
+                xml = wrapper.Strophe.serialize(builder.tree());
             } else {
-                xml = Strophe.serialize(builder);
+                xml = wrapper.Strophe.serialize(builder);
             }
             return $($.parseXML(xml));
         },
 
         createRequest: function (iq) {
             iq = typeof iq.tree === "function" ? iq.tree() : iq;
-            var req = new Strophe.Request(iq, function () {});
+            var req = new wrapper.Strophe.Request(iq, function () {});
             req.getResponse = function () {
-                var env = new Strophe.Builder('env', {type: 'mock'}).tree();
+                var env = new wrapper.Strophe.Builder('env', {type: 'mock'}).tree();
                 env.appendChild(iq);
                 return env;
             };
@@ -32,12 +32,11 @@ define (['jquery', 'strophe'], function ($, wrapper) {
         },
 
         mockConnection: function (callback) {
-            var c = new Strophe.Connection('');
-            c.connect_callback = callback;
-            c.authenticated = true;
-            c.connected = true;
+            var c = new wrapper.Strophe.Connection('');
+            // c.connect_callback = callback;
             c.jid = 'mocker@xmpp/r2';
-            c._changeConnectStatus(Strophe.Status.CONNECTED);
+            c._changeConnectStatus(wrapper.Strophe.Status.CONNECTED);
+            c.authenticated = true;
             c.disconnect = function () {
                 c._doDisconnect();
             };

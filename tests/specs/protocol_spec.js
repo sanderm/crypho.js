@@ -8,7 +8,6 @@ define([
 
     var Strophe = xmppMocker.Strophe,
         $iq = xmppMocker.$iq;
-
     var NS_CRYPHO = 'http://crypho.com/ns/crypho';
     var NS_JABBER_CLIENT = 'jabber:client';
     var IQ_TYPES = {SET:'set', GET:'get'};
@@ -666,7 +665,7 @@ define([
 
         function toResponse(req){
             req = xmppMocker.jquerify(req);
-            return $iq({type: 'result', id: $('iq', req).attr('id')});
+            return $iq({type: 'result', id: $('iq', req).attr('id'), from: 'crypho.xmpp'});
         }
 
         function sendResponse(res) {
