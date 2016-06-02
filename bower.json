@@ -11,7 +11,7 @@
   "dependencies": {
     "jquery": "^2.2.4",
     "strophejs": "1.2.5",
-    "strophe.plugins": ">=1.0.4",
+    "strophe.plugins": "git@github.com:ggozad/strophe.plugins.git#CHORE-update-strophe",
     "burry": "1.0.1",
     "Backbone.xmpp": "1.0.0"
   },
