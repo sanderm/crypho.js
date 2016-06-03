@@ -10,10 +10,10 @@
   ],
   "dependencies": {
     "jquery": "^2.2.4",
-    "strophejs": "1.2.5",
-    "strophe.plugins": "git@github.com:ggozad/strophe.plugins.git#CHORE-update-strophe",
+    "strophejs": "https://github.com/ggozad/strophejs.git",
+    "strophe.plugins": "1.0.5",
     "burry": "1.0.1",
-    "Backbone.xmpp": "1.0.0"
+    "Backbone.xmpp": "1.0.1"
   },
   "devDependencies": {
     "jasmine": "",
