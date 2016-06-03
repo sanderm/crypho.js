@@ -7,8 +7,9 @@ define([
     'burry',
     'globals',
     'crypho/husher'
-    ], function ($, _, Backbone, Strophe, XMPP, Burry, globals, husher) {
+    ], function ($, _, Backbone, wrapper, XMPP, Burry, globals, husher) {
 
+    var Strophe = wrapper.Strophe;
     var User = {};
 
     // Use a burry store for caching vCards. TTL set to 1440, i.e. a day

@@ -11,7 +11,11 @@ define([
     'XMPPPubSub',
     'XMPPPrivate',
     './protocol'
-], function ($, _, Backbone, Strophe, globals) {
+], function ($, _, Backbone, wrapper, globals) {
+
+    var Strophe = wrapper.Strophe,
+        $pres = wrapper.$pres;
+
 
     var XMPP = function () {
         var self = this;
