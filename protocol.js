@@ -460,6 +460,14 @@ define([
             return d.promise();
         },
 
+        unlinkDevice: function (deviceId) {
+            var d = $.Deferred(),
+                iq = this._createIQ('devices', {type: 'set'})
+                    .c('unlink').t(deviceId);
+            this._connection.sendIQ(iq.tree(), d.resolve, d.reject);
+            return d.promise();
+        },
+
         discoverContacts: function (hashes) {
             var d = $.Deferred(),
                 iq = this._createIQ('discovercontacts', {type: 'get'});

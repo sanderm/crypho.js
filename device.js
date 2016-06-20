@@ -8,7 +8,12 @@ define([
     var Devices = {};
 
     Devices.Device = Backbone.Model.extend({
-        idAttribute: 'device_id'
+        idAttribute: 'device_id',
+
+        unlink: function () {
+            return XMPP.connection.Crypho.unlinkDevice(this.id);
+        }
+
     });
 
     Devices.Devices = Backbone.Collection.extend({

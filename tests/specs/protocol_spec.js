@@ -645,6 +645,18 @@ define([
             expectResult(devices);
         });
 
+        it('handles unlinkDevice', function () {
+            spyOn(connection, 'send').and.callFake(function(request) {
+                checkIQ(request, IQ_TYPES.SET);
+                node = getProtocolCommand('iq > devices', request);
+                expect($('unlink', node).text()).toEqual('foo');
+                sendResponse(toResponse(request));
+            });
+            connection.Crypho.unlinkDevice('foo').done(successHandler).fail(errorHandler);
+            expectResult(response);
+        });
+
+
         it('handles discoverContacts', function () {
             var hashes = ['foo', 'bar'], matches = {'foo': 'bar'};
 
