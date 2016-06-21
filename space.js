@@ -147,29 +147,32 @@ define([
             return _.reject(globals.roster.inSpace(this.id), function (user) { return user === globals.me;});
         },
 
-        title: function () {
-            var title = this.get('title');
+        title: function (options) {
+            var title = this.get('title'),
+                participants, displayedParticipants, display;
+
+            options = options || {};
+
             if (title) {
                 return title;
             }
-            var participants =  _.map(this.otherParticipants(), function (user) { return user.fullname(); });
+
+            participants = this.otherParticipants();
+
             if (participants.length === 0) {
                 return '';
             }
-            return _.sortBy(participants).join(', ');
-        },
 
-        shortTitle: function () {
-            var participants = this.otherParticipants(),
-                more = participants.length - 3,
-                display;
-            if (more < 2) {
-                return this.title();
+            if (options.shorten && participants.length > 4) {
+                displayedParticipants = _.first(participants, 3);
+                display = _.map(displayedParticipants, function (user) { return user.fullname(); });
+                display = _.sortBy(display).join(', ');
+                return globals.transl('${display} and ${more} more', {display: display, more: participants.length - 3});
+            } else {
+                display =  _.map(participants, function (user) { return user.fullname(); });
+                display = _.sortBy(display).join(', ');
+                return display;
             }
-            participants = _.first(participants, 3);
-            display = _.map(participants, function (user) { return user.fullname(); });
-            display = _.sortBy(display).join(', ');
-            return globals.transl('${display} and ${more} more', {display: display, more: more});
         },
 
         userRoles: function (userID) {
