@@ -268,6 +268,17 @@ define([
             return d.promise();
         },
 
+        getUnreadMessageCount: function () {
+            var d = $.Deferred(),
+                iq = this._createIQ('unread', {type: 'get'});
+            this._connection.sendIQ(iq.tree(),
+                function (response) {
+                    debugger;
+                    d.resolve(JSON.parse($('unread', response).text()));
+                }, d.reject);
+            return d.promise();
+        },
+
         setPassword: function (keypair) {
             var d = $.Deferred(), self = this,
                 iq = this._createIQ('changepassword')
