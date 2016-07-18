@@ -240,21 +240,19 @@ define([
             _.each(spaces, function (id) {
                 p = XMPP.connection.Crypho.getSpace(id);
                 p.done(function (json) {
-                    if (self.get(id)) {
-                        space = Space.Space.prototype.parse(json);
-                        self.set([space], {remove: false});
-                    } else {
-                        // It might be the space contains users we do not
-                        // yet have in our roster. Update that first before
-                        // triggering an "add".
-                        globals.roster.fetch().done(function () {
+                    // Update the roster with new users/new groups.
+                    globals.roster.fetch().done(function () {
+                        if (self.get(id)) {
+                            space = Space.Space.prototype.parse(json);
+                            self.set([space], {remove: false});
+                        } else {
                             self.add(Space.Space.prototype.parse(json));
                             space = self.get(id);
                             space.lastSeen = new Date(1).toISOString();
                             space.fetchStreams();
                             self._updateSelfGroups();
-                        });
-                    }
+                        }
+                    });
                 });
             });
         },
