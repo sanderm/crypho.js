@@ -192,8 +192,7 @@ define([
                     }
                     user = self.get(bare);
                     user_promises.push(user.fetch());
-                    user.set({groups: _.union(user.get('groups'), roster[bare].groups)});
-
+                    user.set({groups: roster[bare].groups});
                 });
 
                 // Set verification levels
