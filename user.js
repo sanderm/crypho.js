@@ -169,7 +169,6 @@ define([
         },
 
         fetch: function() {
-
             var d = $.Deferred(),
                 self = this,
                 rosterPromise = XMPP.connection.roster.get(),
@@ -177,18 +176,25 @@ define([
 
             rosterPromise.done(function (roster) {
                 var jid, user, bare;
+                var newJIDs = _.keys(roster);
 
-                for (jid in roster) {
-                    if (roster.hasOwnProperty(jid)) {
-                        bare = Strophe.getBareJidFromJid(jid);
-                        if (!self.get(bare)) {
-                            self.add({id: bare, groups: roster[bare].groups});
-                        }
-                        user = self.get(bare);
-                        user_promises.push(user.fetch());
-                        user.set({groups: _.union(user.get('groups'), roster[bare].groups)});
+                // Remove any roster members that have been purged
+                self.each(function (oldUser) {
+                    if (!_.contains(newJIDs, oldUser.id) && oldUser.id !== globals.me.id) {
+                        self.remove(oldUser);
                     }
-                }
+                });
+
+                _.each(newJIDs, function (jid) {
+                    bare = Strophe.getBareJidFromJid(jid);
+                    if (!self.get(bare)) {
+                        self.add({id: bare, groups: roster[bare].groups});
+                    }
+                    user = self.get(bare);
+                    user_promises.push(user.fetch());
+                    user.set({groups: _.union(user.get('groups'), roster[bare].groups)});
+
+                });
 
                 // Set verification levels
                 user_promises.push(
