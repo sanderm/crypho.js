@@ -273,7 +273,6 @@ define([
                 iq = this._createIQ('unread', {type: 'get'});
             this._connection.sendIQ(iq.tree(),
                 function (response) {
-                    debugger;
                     d.resolve(JSON.parse($('unread', response).text()));
                 }, d.reject);
             return d.promise();
